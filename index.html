@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>O-Calc Efficiency Tools</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f6f7fb;
+      color: #172033;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 28px auto;
+      padding: 0 18px;
+      width: 100%;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #dfe3ec;
+      border-radius: 14px;
+      padding: 32px;
+      box-shadow: 0 6px 20px rgba(20, 30, 55, 0.06);
+      margin-bottom: 16px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 32px;
+      text-align: center;
+      color: #185adb;
+    }
+    .subtitle {
+      text-align: center;
+      color: #667085;
+      font-size: 16px;
+      margin-bottom: 40px;
+    }
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin-top: 32px;
+    }
+    .tool-card {
+      background: #fbfcff;
+      border: 2px solid #dfe3ec;
+      border-radius: 14px;
+      padding: 24px;
+      text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      text-decoration: none;
+      display: block;
+    }
+    .tool-card:hover {
+      border-color: #185adb;
+      box-shadow: 0 8px 24px rgba(24, 90, 219, 0.15);
+      transform: translateY(-4px);
+    }
+    .tool-card h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      color: #172033;
+    }
+    .tool-card p {
+      margin: 0;
+      color: #667085;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .tool-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      background: linear-gradient(135deg, #185adb 0%, #4a90e2 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: white;
+    }
+    .version {
+      display: inline-block;
+      background: #eef3ff;
+      color: #185adb;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid #dfe3ec;
+      color: #98a2b3;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>O-Calc Efficiency Tools</h1>
+      <p class="subtitle">Browser-based utilities for O-Calc PDF processing and pole attachment data management</p>
+      
+      <div class="tools-grid">
+        <a href="ocalc_pole_attachment_app.html" class="tool-card">
+          <div class="tool-icon">📄</div>
+          <h2>Pole Attachment Data</h2>
+          <p>Extract sorted P-sequence, coordinates, wind loading, vertical load, and bending moment from O-Calc PDF reports. Export to Excel.</p>
+          <span class="version">v15</span>
+        </a>
+        
+        <a href="vital_comparison_generator.html" class="tool-card">
+          <div class="tool-icon">📊</div>
+          <h2>VITAL Comparison Generator</h2>
+          <p>Generate VITAL_COMPARISON spreadsheet from VITAL_DATASHEET, PDC SHEETS REDLINE, and optional O-Calc PDF reports.</p>
+          <span class="version">v4</span>
+        </a>
+      </div>
+      
+      <footer>
+        All processing happens locally in your browser. No data is uploaded to any server.
+      </footer>
+    </div>
+  </div>
+</body>
+</html>
