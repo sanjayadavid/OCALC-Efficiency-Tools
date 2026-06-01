@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>O-Calc PDF to Pole Attachment Data v13</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body{font-family:Arial,sans-serif;margin:0;background:#f6f7fb;color:#172033} .wrap{max-width:1100px;margin:28px auto;padding:0 18px}
+    .card{background:#fff;border:1px solid #dfe3ec;border-radius:14px;padding:20px;box-shadow:0 6px 20px rgba(20,30,55,.06);margin-bottom:16px}
+    h1{margin:0 0 8px;font-size:24px}.muted{color:#667085}.drop{border:2px dashed #9aa7bd;border-radius:14px;padding:30px;text-align:center;background:#fbfcff}
+    input[type=file]{margin-top:12px}.btn{border:0;border-radius:10px;background:#185adb;color:#fff;padding:11px 16px;font-weight:700;cursor:pointer}.btn:disabled{background:#98a2b3;cursor:not-allowed}
+    table{width:100%;border-collapse:collapse;font-size:12px;background:#fff} th,td{border:1px solid #d9dee8;padding:6px 7px;text-align:left;white-space:nowrap} th{background:#eef3ff;position:sticky;top:0} .scroll{overflow:auto;max-height:440px}.ok{color:#067647}.warn{color:#b54708}.err{color:#b42318} code{background:#f1f3f8;padding:2px 5px;border-radius:5px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>O-Calc PDF → Pole Attachment Data Excel <span style="font-size:14px;color:#667085">v13</span></h1>
+    <div class="muted">Upload one or more O-Calc PDF reports. The app extracts sorted P-sequence, latitude, longitude, Comcast/New Comcast wind, vertical load, and bending moment, then exports an Excel file.</div>
+  </div>
+  <div class="card drop">
+    <b>Select O-Calc PDF files</b><br>
+    <input id="pdfInput" type="file" accept="application/pdf,.pdf" multiple />
+    <p class="muted">All processing happens in your browser.</p>
+    <button id="processBtn" class="btn">Process PDFs</button>
+    <button id="downloadBtn" class="btn" disabled>Download Excel</button>
+    <div id="status" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <b>Results Preview</b>
+    <div class="scroll"><table id="resultTable"></table></div>
+  </div>
+</div>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const HEADERS = [
+  'Job Number','Pole Sequence','ORA ID','Lat','Long','Number of existing attachments on Pole','Attachment owner','Attachment identifying Number','Attachment status','Attachment status date','Support structure','abandoned attachment','voltage attachment','attachment location on pole','Pole Attachment Elevation','Attachment Description','Attachment Dimensions','Attachment Weight','Grade of Construction','Conductor Tension','Cable Tensile Strength','Cable Average Span Length','Wind Loading on the Attachment','Vertical Loading','Bending Moment due to the Attachment'
+];
+let finalRows = [];
+
+const cleanNum = s => {
+  const raw = String(s ?? '').replace(/,/g,'').replace(/[()]/g,'').replace(/[−–—]/g,'-').trim();
+  const m = raw.match(/[-+]?\d+(?:\.\d+)?/);
+  return m ? Number(m[0]) : 0;
+};
+const fmtNum = n => Math.round((n + Number.EPSILON) * 1000) / 1000;
+
+function getSeqInfo(fileName){
+  const base = fileName.replace(/\.pdf$/i,'');
+  const m = base.match(/^\s*(\d+)/);
+  const raw = m ? m[1] : '';
+  const num = raw ? parseInt(raw, 10) : 999999;
+  const over = /over\s*capacity|overcapacity/i.test(base);
+  const display = raw ? ('P' + raw + (over ? ' - OVERCAPACITY' : '')) : (over ? 'OVERCAPACITY' : '');
+  return {raw, num, over, display};
+}
+function getPoleSequence(fileName){ return getSeqInfo(fileName).display; }
+
+function groupItemsIntoRows(items){
+  const rows = [];
+  items.forEach(it => {
+    const x = it.transform[4], y = it.transform[5];
+    let row = rows.find(r => Math.abs(r.y - y) < 3.2);
+    if(!row){ row = {y, cells:[]}; rows.push(row); }
+    row.cells.push({x, y, text: it.str});
+  });
+  rows.sort((a,b)=>b.y-a.y);
+  rows.forEach(r => { r.cells.sort((a,b)=>a.x-b.x); r.text = r.cells.map(c=>c.text).join(' ').replace(/\s+/g,' ').trim(); });
+  return rows;
+}
+
+async function readPdf(file){
+  const data = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data}).promise;
+  let pages = [];
+  let fullText = '';
+  for(let p=1;p<=pdf.numPages;p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const rows = groupItemsIntoRows(content.items);
+    const pageText = rows.map(r=>r.text).join('\n');
+    fullText += '\n' + pageText;
+    pages.push({page:p, rows, items:content.items});
+  }
+  return {pages, fullText};
+}
+
+function extractLatLong(pages, fullText){
+  const normalized = fullText.replace(/\s+/g, ' ');
+  let m = normalized.match(/Latitude\s*:?\s*([-+]?\d+(?:\.\d+)?)\s+Longitude\s*:?\s*([-+]?\d+(?:\.\d+)?)/i);
+  if(m) return {lat:m[1], lon:m[2]};
+
+  // Some O-Calc PDFs place the label and value in separate text items/cells.
+  // Read the value immediately to the right of the Latitude:/Longitude: label on the same row.
+  function valueRightOf(labelRegex){
+    for(const pg of pages){
+      for(const it of pg.items){
+        const labelText = String(it.str || '').trim();
+        if(!labelRegex.test(labelText)) continue;
+        const inlineNum = labelText.match(/[-+]?\d+(?:\.\d+)?/);
+        if(inlineNum) return inlineNum[0];
+        const x = it.transform[4], y = it.transform[5];
+        const candidates = pg.items
+          .map(c => ({text:String(c.str || '').trim(), x:c.transform[4], y:c.transform[5]}))
+          .filter(c => Math.abs(c.y - y) < 5 && c.x > x && /^[-+]?\d+(?:\.\d+)?$/.test(c.text))
+          .sort((a,b) => a.x - b.x);
+        if(candidates.length) return candidates[0].text;
+      }
+    }
+    return '';
+  }
+
+  let lat = valueRightOf(/^Latitude:?$/i);
+  let lon = valueRightOf(/^Longitude:?$/i);
+
+  // Fallback for rows like: Latitude: Longitude: Elevation: 38.68325 -121.783896 68
+  if(!lat || !lon){
+    for(const pg of pages){
+      for(let i=0;i<pg.rows.length;i++){
+        const t = pg.rows[i].text;
+        if(/Latitude/i.test(t) && /Longitude/i.test(t)){
+          const combined = (t + ' ' + (pg.rows[i+1]?.text || '')).replace(/\s+/g,' ');
+          const nums = combined.match(/[-+]?\d+(?:\.\d+)?/g) || [];
+          const good = nums.filter(n => Math.abs(parseFloat(n)) > 1);
+          const latCandidate = good.find(n => parseFloat(n) > -90 && parseFloat(n) < 90);
+          const lonCandidate = good.find(n => parseFloat(n) < -90 || parseFloat(n) > 90);
+          if(!lat && latCandidate) lat = latCandidate;
+          if(!lon && lonCandidate) lon = lonCandidate;
+        }
+      }
+    }
+  }
+  
+  // Preserve / infer western-hemisphere negative longitude when PDF text extraction
+  // separates or drops the minus sign before values like -121.xxxxxx.
+  if(lon && !/^[-+]/.test(String(lon).trim()) && Math.abs(parseFloat(lon)) > 90){
+    lon = '-' + String(lon).trim();
+  }
+  return {lat, lon};
+}
+
+function extractOwnerSummary(pages){
+  let vertical = 0, bending = 0;
+  for(const pg of pages){
+    let inSummary = false;
+    for(const r of pg.rows){
+      const t = r.text.replace(/\s+/g,' ').trim();
+      if(/Load Summary by Owner/i.test(t)){ inSummary = true; continue; }
+      if(inSummary && /Detailed Load Components/i.test(t)) inSummary = false;
+      if(!inSummary) continue;
+      if(!/\b(COMCAST|NEW\s+COMCAST)\b/i.test(t)) continue;
+      const nums = numericValuesFromRow(r);
+      if(nums.length >= 7){
+        bending += nums[2];
+        vertical += nums[6];
+      }
+    }
+  }
+  return {vertical:fmtNum(vertical), bending:fmtNum(bending)};
+}
+
+function ownerTextNear(row, allRows){
+  const ownerCells = [];
+  for(const r of allRows){
+    if(Math.abs(r.y - row.y) <= 12){
+      for(const c of r.cells){
+        // Owner column is normally shortly after description; this wide band supports scaled PDFs.
+        if(c.x > 230 && c.x < 370) ownerCells.push(c.text);
+      }
+    }
+  }
+  return ownerCells.join(' ').replace(/\s+/g,' ').trim();
+}
+
+function isNumberLine(t){
+  const nums = numericValuesFromRow(r);
+  // A detailed component data line normally has many numeric columns.
+  return nums.length >= 3;
+}
+
+function isSingleNumber(t){ return /^[-+]?\d[\d,]*(?:\.\d+)?$/.test(String(t||'').trim()); }
+function windFromFollowingLines(lines, startIndex){
+  const nums = [];
+  let started = false;
+  for(let j=startIndex; j<lines.length; j++){
+    const t = lines[j].trim();
+    if(isSingleNumber(t)){ nums.push(cleanNum(t)); started = true; continue; }
+    if(isNumberLine(t)){ return windFromNumberLine(t); }
+    if(started) break;
+  }
+  return nums.length >= 2 ? nums[nums.length - 2] : 0;
+}
+function isOwnerComcastCandidate(lines, i){
+  const t = lines[i].trim();
+  const t2 = (lines[i+1] || '').trim();
+  if(/^COMCAST$/i.test(t)) return true;
+  if(/^NEW\s+COMCAST$/i.test(t)) return true;
+  if(/^NEW$/i.test(t) && /^COMCAST$/i.test(t2)) return true;
+  return false;
+}
+function windFromNumberLine(t){
+  const nums = (t.match(/[\-+−–—]?\d[\d,]*(?:\.\d+)?/g) || []).map(cleanNum);
+  if(nums.length < 2) return 0;
+  // O-Calc detailed component rows end with: Offset Moment, Wind Moment, Moment at GL.
+  // Some rows omit tension values, but Wind Moment is still the second-to-last numeric value.
+  return nums[nums.length - 2];
+}
+function numericValuesFromRow(row){
+  // PDF.js can split a negative number into two text cells: "-" and "1,489".
+  // Keep that sign and apply it to the next numeric cell.
+  const vals = [];
+  let pendingSign = 1;
+  for(const c of row.cells){
+    let t = String(c.text || '').trim().replace(/[−–—]/g, '-');
+    if(!t) continue;
+    if(/^[-+]$/.test(t)){
+      pendingSign = t === '-' ? -1 : 1;
+      continue;
+    }
+    if(/^[-+]?\d[\d,]*(?:\.\d+)?$/.test(t)){
+      let n = cleanNum(t);
+      if(!/^[-+]/.test(t) && pendingSign === -1) n = -Math.abs(n);
+      vals.push(n);
+      pendingSign = 1;
+      continue;
+    }
+    // Some text extraction joins words and numbers; capture signed numbers inside.
+    const matches = t.match(/[-+]?\d[\d,]*(?:\.\d+)?/g) || [];
+    for(const m of matches){
+      let n = cleanNum(m);
+      if(!/^[-+]/.test(m) && pendingSign === -1) n = -Math.abs(n);
+      vals.push(n);
+      pendingSign = 1;
+    }
+  }
+  return vals;
+}
+
+function hasManyNumbers(row){
+  return numericValuesFromRow(row).length >= 6;
+}
+
+function isComcastOwnerRow(row, nextRow){
+  const t = row.text.replace(/\s+/g,' ').trim();
+  const nt = nextRow ? nextRow.text.replace(/\s+/g,' ').trim() : '';
+
+  // Owner can be extracted as one line (NEW COMCAST / COMCAST),
+  // or split across two visual lines: first row contains NEW, next row contains COMCAST.
+  if(/NEW\s+COMCAST/i.test(t)) return true;
+  if(/COMCAST/i.test(t) && !/OTHER/i.test(t)) return true;
+  if(/NEW/i.test(t) && /COMCAST/i.test(nt) && !/OTHER/i.test(nt)) return true;
+  return false;
+}
+
+function windMomentFromDetailedCommRow(row){
+  const nums = numericValuesFromRow(row);
+  // Detailed Comm component rows end with: Offset Moment, Wind Moment, Moment at GL.
+  // Therefore Wind Moment is the second-to-last numeric cell on that same component row.
+  return nums.length >= 2 ? nums[nums.length - 2] : 0;
+}
+
+function windMomentFromCommRowBlock(row, nextRow){
+  // For wrapped rows like:
+  // CATV MOD - ... NEW 8.00 ... 2
+  // SIDR ... COMCAST ... 42 1267
+  // the true component row is the combined numeric sequence of both extracted rows.
+  let nums = numericValuesFromRow(row);
+  const t = row.text.replace(/\s+/g,' ').trim();
+  const nt = nextRow ? nextRow.text.replace(/\s+/g,' ').trim() : '';
+  const splitNewComcast = /NEW/i.test(t) && /COMCAST/i.test(nt) && !/OTHER/i.test(nt);
+  if(splitNewComcast && nextRow){
+    nums = nums.concat(numericValuesFromRow(nextRow));
+  }
+  return nums.length >= 2 ? nums[nums.length - 2] : 0;
+}
+
+function extractCommWindMoment(pages){
+  let total = 0;
+  let inComm = false;
+
+  let pendingOwner = false;
+  let pendingDrop = false;
+  let pendingRowsLeft = 0;
+  let skipNext = false;
+
+  function sectionStop(t){
+    return /^Totals:/i.test(t) || /Load Summary by Owner/i.test(t) || /^Detailed Load Components:/i.test(t) ||
+      /^GenericEquipment\b/i.test(t) || /^Crossarm\b/i.test(t) || /^Riser\b/i.test(t) ||
+      /^Insulator\b/i.test(t) || /^Power\b/i.test(t) || /^Service\b/i.test(t) || /^Guy/i.test(t);
+  }
+
+  for(const pg of pages){
+    const rows = pg.rows;
+    skipNext = false;
+    for(let i=0;i<rows.length;i++){
+      if(skipNext){ skipNext = false; continue; }
+
+      const r = rows[i];
+      const t = r.text.replace(/\s+/g,' ').trim();
+      const next = rows[i+1];
+      const nt = next ? next.text.replace(/\s+/g,' ').trim() : '';
+
+      // Only start inside the Detailed Load Components Comm table.
+      if(/^Comm$/i.test(t) || /^Detailed Load Components:\s*Comm\b/i.test(t) || /^Comm\s+Owner\b/i.test(t)){
+        inComm = true;
+        pendingOwner = false;
+        pendingDrop = false;
+        pendingRowsLeft = 0;
+        continue;
+      }
+
+      // Stop only when the Comm table actually ends; do not stop on page headers.
+      if(inComm && sectionStop(t)){
+        inComm = false;
+        pendingOwner = false;
+        pendingDrop = false;
+        pendingRowsLeft = 0;
+        continue;
+      }
+
+      if(inComm && /^Pole ID:/i.test(t)) continue;
+      if(!inComm) continue;
+
+      const currentOwner = isComcastOwnerRow(r, next);
+      const currentDrop = /\bDROP\b/i.test(t) || /\bDROP\b/i.test(nt);
+      const currentHasNums = hasManyNumbers(r);
+      const nextHasNums = next ? hasManyNumbers(next) : false;
+      const splitNewComcast = /\bNEW\b/i.test(t) && /\bCOMCAST\b/i.test(nt) && !/\bOTHER\b/i.test(nt);
+
+      // If NEW is on the first extracted row and COMCAST/numbers continue on the next,
+      // combine both rows so the Wind Moment is not missed.
+      if(splitNewComcast && (currentHasNums || nextHasNums)){
+        if(!currentDrop){
+          total += windMomentFromCommRowBlock(r, next);
+        }
+        skipNext = true;
+        pendingOwner = false;
+        pendingDrop = false;
+        pendingRowsLeft = 0;
+        continue;
+      }
+
+      // Owner detected but numeric values are on the next extracted line.
+      if(currentOwner && !currentHasNums){
+        pendingOwner = true;
+        pendingDrop = currentDrop;
+        pendingRowsLeft = 3;
+        continue;
+      }
+
+      if(currentHasNums){
+        const ownerIsComcast = currentOwner || pendingOwner;
+        const isDrop = currentDrop || pendingDrop;
+        if(ownerIsComcast && !isDrop){
+          total += windMomentFromDetailedCommRow(r);
+        }
+        pendingOwner = false;
+        pendingDrop = false;
+        pendingRowsLeft = 0;
+        continue;
+      }
+
+      if(pendingRowsLeft > 0){
+        pendingRowsLeft -= 1;
+        pendingDrop = pendingDrop || currentDrop;
+        if(pendingRowsLeft === 0){
+          pendingOwner = false;
+          pendingDrop = false;
+        }
+      }
+    }
+  }
+  return fmtNum(total);
+}
+
+async function processFiles(){
+  const files = [...document.getElementById('pdfInput').files];
+  const status = document.getElementById('status');
+  finalRows = [];
+  document.getElementById('downloadBtn').disabled = true;
+  if(!files.length){ status.innerHTML = '<span class="warn">Please select at least one PDF.</span>'; return; }
+  status.innerHTML = 'Processing...';
+  for(const file of files){
+    try{
+      const {pages, fullText} = await readPdf(file);
+      const {lat, lon} = extractLatLong(pages, fullText);
+      const ownerSummary = extractOwnerSummary(pages);
+      const wind = extractCommWindMoment(pages);
+      const values = {
+        'Job Number':'',
+        'Pole Sequence':getPoleSequence(file.name),
+        '_sort': getSeqInfo(file.name),
+        'ORA ID':'',
+        'Lat':lat,
+        'Long':lon,
+        'Number of existing attachments on Pole':'',
+        'Attachment owner':'Comcast',
+        'Attachment identifying Number':'',
+        'Attachment status':'Submitted',
+        'Attachment status date':'',
+        'Support structure':'',
+        'abandoned attachment':'',
+        'voltage attachment':'Low',
+        'attachment location on pole':'Comm. Zone',
+        'Pole Attachment Elevation':'',
+        'Attachment Description':'Bundle',
+        'Attachment Dimensions':'',
+        'Attachment Weight':'',
+        'Grade of Construction':'',
+        'Conductor Tension':'',
+        'Cable Tensile Strength':'',
+        'Cable Average Span Length':'',
+        'Wind Loading on the Attachment':wind,
+        'Vertical Loading':ownerSummary.vertical,
+        'Bending Moment due to the Attachment':ownerSummary.bending
+      };
+      finalRows.push(values);
+    }catch(e){
+      finalRows.push({'Pole Sequence':getPoleSequence(file.name), '_sort': getSeqInfo(file.name), 'Attachment owner':'Comcast','Attachment status':'ERROR: '+e.message});
+    }
+  }
+  finalRows.sort((a,b)=>((a._sort?.num ?? 999999)-(b._sort?.num ?? 999999)) || ((a._sort?.over?1:0)-(b._sort?.over?1:0)) || String(a['Pole Sequence']).localeCompare(String(b['Pole Sequence'])));
+  renderTable();
+  status.innerHTML = `<span class="ok">Done. ${finalRows.length} PDF(s) processed.</span>`;
+  document.getElementById('downloadBtn').disabled = false;
+}
+
+function renderTable(){
+  const table = document.getElementById('resultTable');
+  table.innerHTML = '<thead><tr>'+HEADERS.map(h=>`<th>${h}</th>`).join('')+'</tr></thead><tbody>'+
+    finalRows.map(r=>'<tr>'+HEADERS.map(h=>`<td>${r[h] ?? ''}</td>`).join('')+'</tr>').join('')+'</tbody>';
+}
+
+function downloadExcel(){
+  // Export only visible Excel fields. Keep internal helper fields like _sort out of the file.
+  const exportRows = finalRows.map(r => {
+    const clean = {};
+    HEADERS.forEach(h => {
+      clean[h] = r[h] ?? '';
+    });
+    return clean;
+  });
+
+  const ws = XLSX.utils.json_to_sheet(exportRows, {header:HEADERS});
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Pole Attachment Data');
+  ws['!cols'] = HEADERS.map(h => ({wch: Math.min(Math.max(h.length+2, 12), 34)}));
+  XLSX.writeFile(wb, 'Pole Attachment Data.xlsx');
+}
+
+document.getElementById('processBtn').addEventListener('click', processFiles);
+document.getElementById('downloadBtn').addEventListener('click', downloadExcel);
+</script>
+</body>
+</html>
