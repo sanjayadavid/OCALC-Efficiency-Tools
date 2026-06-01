@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>O-Calc PDF to Pole Attachment Data v13</title>
+  <title>O-Calc PDF to Pole Attachment Data v15</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -17,7 +17,7 @@
 <body>
 <div class="wrap">
   <div class="card">
-    <h1>O-Calc PDF → Pole Attachment Data Excel <span style="font-size:14px;color:#667085">v13</span></h1>
+    <h1>O-Calc PDF → Pole Attachment Data Excel <span style="font-size:14px;color:#667085">v15</span></h1>
     <div class="muted">Upload one or more O-Calc PDF reports. The app extracts sorted P-sequence, latitude, longitude, Comcast/New Comcast wind, vertical load, and bending moment, then exports an Excel file.</div>
   </div>
   <div class="card drop">
@@ -50,12 +50,22 @@ const fmtNum = n => Math.round((n + Number.EPSILON) * 1000) / 1000;
 
 function getSeqInfo(fileName){
   const base = fileName.replace(/\.pdf$/i,'');
-  const m = base.match(/^\s*(\d+)/);
-  const raw = m ? m[1] : '';
-  const num = raw ? parseInt(raw, 10) : 999999;
+
+  // Pole sequence is taken from the first sequence token in the filename.
+  // Supports numeric-only and alphanumeric sequences, for example:
+  //   01 WEST ST ...      -> P01
+  //   2080A WEST ST ...   -> P2080A
+  //   P2080A WEST ST ...  -> P2080A
+  // The letter suffix is preserved so 2080 and 2080A stay different.
+  const m = base.match(/^\s*(?:P[\s._-]*)?(\d+[A-Za-z]*)(?=|[\s._#-]|$)/i);
+  const raw = m ? m[1].toUpperCase() : '';
+  const numMatch = raw.match(/\d+/);
+  const suffixMatch = raw.match(/[A-Z]+$/i);
+  const num = numMatch ? parseInt(numMatch[0], 10) : 999999;
+  const suffix = suffixMatch ? suffixMatch[0].toUpperCase() : '';
   const over = /over\s*capacity|overcapacity/i.test(base);
   const display = raw ? ('P' + raw + (over ? ' - OVERCAPACITY' : '')) : (over ? 'OVERCAPACITY' : '');
-  return {raw, num, over, display};
+  return {raw, num, suffix, over, display};
 }
 function getPoleSequence(fileName){ return getSeqInfo(fileName).display; }
 
@@ -422,7 +432,12 @@ async function processFiles(){
       finalRows.push({'Pole Sequence':getPoleSequence(file.name), '_sort': getSeqInfo(file.name), 'Attachment owner':'Comcast','Attachment status':'ERROR: '+e.message});
     }
   }
-  finalRows.sort((a,b)=>((a._sort?.num ?? 999999)-(b._sort?.num ?? 999999)) || ((a._sort?.over?1:0)-(b._sort?.over?1:0)) || String(a['Pole Sequence']).localeCompare(String(b['Pole Sequence'])));
+  finalRows.sort((a,b)=>
+    ((a._sort?.num ?? 999999)-(b._sort?.num ?? 999999)) ||
+    String(a._sort?.suffix ?? '').localeCompare(String(b._sort?.suffix ?? ''), undefined, {numeric:true, sensitivity:'base'}) ||
+    ((a._sort?.over?1:0)-(b._sort?.over?1:0)) ||
+    String(a['Pole Sequence']).localeCompare(String(b['Pole Sequence']), undefined, {numeric:true, sensitivity:'base'})
+  );
   renderTable();
   status.innerHTML = `<span class="ok">Done. ${finalRows.length} PDF(s) processed.</span>`;
   document.getElementById('downloadBtn').disabled = false;
