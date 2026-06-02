@@ -3,26 +3,30 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>O-Calc PDF to Pole Attachment Data v15</title>
+  <title>O-Calc PDF to Pole Attachment Data v16.8</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body{font-family:Arial,sans-serif;margin:0;background:#f6f7fb;color:#172033} .wrap{max-width:1100px;margin:28px auto;padding:0 18px}
     .card{background:#fff;border:1px solid #dfe3ec;border-radius:14px;padding:20px;box-shadow:0 6px 20px rgba(20,30,55,.06);margin-bottom:16px}
     h1{margin:0 0 8px;font-size:24px}.muted{color:#667085}.drop{border:2px dashed #9aa7bd;border-radius:14px;padding:30px;text-align:center;background:#fbfcff}
-    input[type=file]{margin-top:12px}.btn{border:0;border-radius:10px;background:#185adb;color:#fff;padding:11px 16px;font-weight:700;cursor:pointer}.btn:disabled{background:#98a2b3;cursor:not-allowed}
-    table{width:100%;border-collapse:collapse;font-size:12px;background:#fff} th,td{border:1px solid #d9dee8;padding:6px 7px;text-align:left;white-space:nowrap} th{background:#eef3ff;position:sticky;top:0} .scroll{overflow:auto;max-height:440px}.ok{color:#067647}.warn{color:#b54708}.err{color:#b42318} code{background:#f1f3f8;padding:2px 5px;border-radius:5px}
+    input[type=file]{margin-top:12px}.field{margin:14px auto 4px;display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap}.field input{padding:9px 10px;border:1px solid #cfd6e4;border-radius:8px;min-width:260px}.btn{border:0;border-radius:10px;background:#185adb;color:#fff;padding:11px 16px;font-weight:700;cursor:pointer}.btn:disabled{background:#98a2b3;cursor:not-allowed}
+    table{width:100%;border-collapse:collapse;font-size:12px;background:#fff} th,td{border:1px solid #d9dee8;padding:6px 7px;text-align:center;white-space:nowrap} th{background:#eef3ff;position:sticky;top:0} .scroll{overflow:auto;max-height:440px}.ok{color:#067647}.warn{color:#b54708}.err{color:#b42318} code{background:#f1f3f8;padding:2px 5px;border-radius:5px}
   </style>
 </head>
 <body>
 <div class="wrap">
   <div class="card">
-    <h1>O-Calc PDF → Pole Attachment Data Excel <span style="font-size:14px;color:#667085">v15</span></h1>
+    <h1>O-Calc PDF → Pole Attachment Data Excel <span style="font-size:14px;color:#667085">v16.8</span></h1>
     <div class="muted">Upload one or more O-Calc PDF reports. The app extracts sorted P-sequence, latitude, longitude, Comcast/New Comcast wind, vertical load, and bending moment, then exports an Excel file.</div>
   </div>
   <div class="card drop">
     <b>Select O-Calc PDF files</b><br>
     <input id="pdfInput" type="file" accept="application/pdf,.pdf" multiple />
+    <div class="field">
+      <label for="jobNumberInput"><b>Job Number</b></label>
+      <input id="jobNumberInput" type="text" placeholder="Optional - leave blank if not needed" />
+    </div>
     <p class="muted">All processing happens in your browser.</p>
     <button id="processBtn" class="btn">Process PDFs</button>
     <button id="downloadBtn" class="btn" disabled>Download Excel</button>
@@ -46,7 +50,7 @@ const cleanNum = s => {
   const m = raw.match(/[-+]?\d+(?:\.\d+)?/);
   return m ? Number(m[0]) : 0;
 };
-const fmtNum = n => Math.round((n + Number.EPSILON) * 1000) / 1000;
+const fmtNum = n => Math.round((n + Number.EPSILON) * 100) / 100;
 
 function getSeqInfo(fileName){
   const base = fileName.replace(/\.pdf$/i,'');
@@ -57,7 +61,7 @@ function getSeqInfo(fileName){
   //   2080A WEST ST ...   -> P2080A
   //   P2080A WEST ST ...  -> P2080A
   // The letter suffix is preserved so 2080 and 2080A stay different.
-  const m = base.match(/^\s*(?:P[\s._-]*)?(\d+[A-Za-z]*)(?=|[\s._#-]|$)/i);
+  const m = base.match(/^\s*(?:P[\s._-]*)?(\d+[A-Za-z]*)(?=\b|[\s._#-]|$)/i);
   const raw = m ? m[1].toUpperCase() : '';
   const numMatch = raw.match(/\d+/);
   const suffixMatch = raw.match(/[A-Z]+$/i);
@@ -150,6 +154,48 @@ function extractLatLong(pages, fullText){
     lon = '-' + String(lon).trim();
   }
   return {lat, lon};
+}
+
+
+function extractConstructionGrade(pages, fullText){
+  // Construction Grade is usually shown near the pole summary table, for example:
+  // Construction Grade: A
+  // Search all pages because it may not always be on page 2.
+  const normalized = fullText.replace(/\s+/g, ' ');
+  let m = normalized.match(/Construction\s+Grade\s*:?\s*([A-Z])/i);
+  if(m) return m[1].toUpperCase();
+
+  // Fallback: PDF.js may split the label and value into separate text items/cells.
+  // Read the closest value to the right of "Construction Grade" on the same row.
+  for(const pg of pages){
+    for(const it of pg.items){
+      const labelText = String(it.str || '').trim();
+      if(!/^Construction\s+Grade:?$/i.test(labelText)) continue;
+      const inlineGrade = labelText.match(/Construction\s+Grade\s*:?\s*([A-Z])/i);
+      if(inlineGrade) return inlineGrade[1].toUpperCase();
+      const x = it.transform[4], y = it.transform[5];
+      const candidates = pg.items
+        .map(c => ({text:String(c.str || '').trim(), x:c.transform[4], y:c.transform[5]}))
+        .filter(c => Math.abs(c.y - y) < 5 && c.x > x && /^[A-Z]$/i.test(c.text))
+        .sort((a,b) => a.x - b.x);
+      if(candidates.length) return candidates[0].text.toUpperCase();
+    }
+  }
+
+  // Fallback for row text where label and value are separated by other cells.
+  for(const pg of pages){
+    for(let i=0;i<pg.rows.length;i++){
+      const t = pg.rows[i].text.replace(/\s+/g,' ').trim();
+      if(/Construction\s+Grade/i.test(t)){
+        const rowMatch = t.match(/Construction\s+Grade\s*:?\s*([A-Z])/i);
+        if(rowMatch) return rowMatch[1].toUpperCase();
+        const combined = (t + ' ' + (pg.rows[i+1]?.text || '')).replace(/\s+/g,' ');
+        const combinedMatch = combined.match(/Construction\s+Grade\s*:?\s*([A-Z])/i);
+        if(combinedMatch) return combinedMatch[1].toUpperCase();
+      }
+    }
+  }
+  return '';
 }
 
 function extractOwnerSummary(pages){
@@ -259,9 +305,9 @@ function isComcastOwnerRow(row, nextRow){
 
   // Owner can be extracted as one line (NEW COMCAST / COMCAST),
   // or split across two visual lines: first row contains NEW, next row contains COMCAST.
-  if(/NEW\s+COMCAST/i.test(t)) return true;
-  if(/COMCAST/i.test(t) && !/OTHER/i.test(t)) return true;
-  if(/NEW/i.test(t) && /COMCAST/i.test(nt) && !/OTHER/i.test(nt)) return true;
+  if(/\bNEW\s+COMCAST\b/i.test(t)) return true;
+  if(/\bCOMCAST\b/i.test(t) && !/\bOTHER\b/i.test(t)) return true;
+  if(/\bNEW\b/i.test(t) && /\bCOMCAST\b/i.test(nt) && !/\bOTHER\b/i.test(nt)) return true;
   return false;
 }
 
@@ -280,7 +326,7 @@ function windMomentFromCommRowBlock(row, nextRow){
   let nums = numericValuesFromRow(row);
   const t = row.text.replace(/\s+/g,' ').trim();
   const nt = nextRow ? nextRow.text.replace(/\s+/g,' ').trim() : '';
-  const splitNewComcast = /NEW/i.test(t) && /COMCAST/i.test(nt) && !/OTHER/i.test(nt);
+  const splitNewComcast = /\bNEW\b/i.test(t) && /\bCOMCAST\b/i.test(nt) && !/\bOTHER\b/i.test(nt);
   if(splitNewComcast && nextRow){
     nums = nums.concat(numericValuesFromRow(nextRow));
   }
@@ -386,8 +432,382 @@ function extractCommWindMoment(pages){
   return fmtNum(total);
 }
 
+
+function extractNewComcastTension(pages){
+  // v16.8 logic for columns T and U:
+  // 1) Work only in Detailed Load Components -> Comm.
+  // 2) First priority: detect strand size from related Overlashed Bundle rows:
+  //      6M   -> 1200
+  //      6.6M -> 1320
+  //      10M  -> 2000
+  // 3) If no valid strand size is found but NEW COMCAST exists, treat it as self-support cable.
+  //    For self-support cable, read Tension (lbs) from the NEW COMCAST cable row.
+  //    If multiple tension values are found, use the largest one (example: 175 and 1630 -> 1630).
+  // 4) Cable Tensile Strength = Conductor Tension x 5.
+  // 5) If no NEW COMCAST exists in Comm, return "-" for both fields.
+  let inComm = false;
+  let hasNewComcast = false;
+  const entries = [];
+  const selfSupportTensions = [];
+  let globalIdx = 0;
+
+  function sectionStop(t){
+    return /^Totals:/i.test(t) || /Load Summary by Owner/i.test(t) || /^Detailed Load Components:/i.test(t) ||
+      /^GenericEquipment\b/i.test(t) || /^Crossarm\b/i.test(t) || /^Riser\b/i.test(t) ||
+      /^Insulator\b/i.test(t) || /^Power\b/i.test(t) || /^Service\b/i.test(t) || /^Guy/i.test(t);
+  }
+
+  function strandToTension(strand){
+    const key = String(strand || '').toUpperCase().replace(/\s+/g,'');
+    if(key === '6M') return 1200;
+    if(key === '6.6M') return 1320;
+    if(key === '10M') return 2000;
+    return '';
+  }
+
+  function getStrandFromText(txt){
+    // Check 6.6M before 6M so 6.6M is not accidentally treated as 6M.
+    const m = String(txt || '').match(/\b(6\.6\s*M|10\s*M|6\s*M)\b/i);
+    return m ? m[1] : '';
+  }
+
+  function ownerIsNewComcast(txt){
+    const s = String(txt || '').replace(/\s+/g,' ').trim();
+    return /\bNEW\s+COMCAST\b/i.test(s) || (/\bNEW\b/i.test(s) && /\bCOMCAST\b/i.test(s));
+  }
+
+  function ownerIsComcastOrNew(txt){
+    const s = String(txt || '').replace(/\s+/g,' ').trim();
+    return ownerIsNewComcast(s) || (/\bCOMCAST\b/i.test(s) && !/\bOTHER\b/i.test(s));
+  }
+
+  function cleanCellNumber(text){
+    const s = String(text || '').replace(/,/g,'').replace(/[−–—]/g,'-').trim();
+    if(!/^[-+]?\d+(?:\.\d+)?$/.test(s)) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function numericCellsFromRows(rows){
+    const cells = [];
+    rows.filter(Boolean).forEach(row => {
+      row.cells.forEach(c => {
+        const n = cleanCellNumber(c.text);
+        if(n !== null){
+          cells.push({x:c.x, y:c.y, value:n, text:String(c.text || '').trim()});
+        }
+      });
+    });
+    return cells.sort((a,b)=>a.x-b.x);
+  }
+
+  function valuesNearX(cells, minX, maxX){
+    return cells.filter(c => c.x >= minX && c.x <= maxX).map(c => c.value);
+  }
+
+  function tensionValuesFromRows(rows){
+    const cells = numericCellsFromRows(rows);
+    if(!cells.length) return [];
+
+    // O-Calc detailed Comm table: Tension (lbs) column is immediately to the right of Wire Length.
+    // This x-band preserves the real table column, so adjusted slack-span numbers and other moments
+    // are not mistaken as the cable tension.
+    let candidates = valuesNearX(cells, 570, 635)
+      .filter(n => Number.isFinite(n) && n > 0);
+
+    // Fallback for unusual PDF scaling/extraction.
+    // For a normal detailed Comm row with tension, numeric sequence is usually:
+    // height, horiz, diameter, sag, weight, lead/span, span angle, wire length,
+    // tension, tension moment, offset moment, wind moment, moment at GL.
+    if(!candidates.length){
+      const nums = rows.filter(Boolean).flatMap(r => numericValuesFromRow(r));
+      if(nums.length >= 13 && Number.isFinite(nums[8]) && nums[8] > 0){
+        candidates.push(nums[8]);
+      }
+    }
+
+    return candidates;
+  }
+
+  for(const pg of pages){
+    const rows = pg.rows;
+    for(let i=0;i<rows.length;i++){
+      const t = rows[i].text.replace(/\s+/g,' ').trim();
+      const nt = rows[i+1] ? rows[i+1].text.replace(/\s+/g,' ').trim() : '';
+      const nnt = rows[i+2] ? rows[i+2].text.replace(/\s+/g,' ').trim() : '';
+
+      if(/^Comm$/i.test(t) || /^Detailed Load Components:\s*Comm\b/i.test(t) || /^Comm\s+Owner\b/i.test(t)){
+        inComm = true;
+        continue;
+      }
+
+      if(inComm && sectionStop(t)){
+        inComm = false;
+        continue;
+      }
+
+      if(inComm && /^Pole ID:/i.test(t)) continue;
+      if(!inComm) continue;
+
+      const block = (t + ' ' + nt + ' ' + nnt).replace(/\s+/g,' ').trim();
+      const isNew = ownerIsNewComcast(block);
+      const isDrop = /\bDROP\b/i.test(block);
+      if(isNew) hasNewComcast = true;
+
+      const isOverlashed = /\bOverlashed\s+Bundle\b/i.test(block);
+      const isCatv = /\bCATV\b/i.test(block);
+      const strand = getStrandFromText(block);
+      const isComcastStrandOwner = ownerIsComcastOrNew(block);
+      const currentHasNums = hasManyNumbers(rows[i]);
+      const nextHasNums = rows[i+1] ? hasManyNumbers(rows[i+1]) : false;
+      const splitNewComcast = /\bNEW\b/i.test(t) && /\bCOMCAST\b/i.test(nt) && !/\bOTHER\b/i.test(nt);
+
+      entries.push({idx:globalIdx, text:block, isNew, isOverlashed, isCatv, strand, isComcastStrandOwner});
+
+      // Self-support fallback candidates: any NEW COMCAST non-DROP cable/component row with a Tension (lbs) value.
+      // When NEW and COMCAST are split across two visual rows, combine both rows.
+      if(isNew && !isDrop && (currentHasNums || nextHasNums)){
+        const rowsForTension = splitNewComcast ? [rows[i], rows[i+1]] : [rows[i]];
+        tensionValuesFromRows(rowsForTension).forEach(v => selfSupportTensions.push(v));
+      }
+
+      globalIdx += 1;
+    }
+  }
+
+  if(!hasNewComcast){
+    return {conductor:'-', tensile:'-'};
+  }
+
+  function resultFromStrand(strand){
+    const conductor = strandToTension(strand);
+    if(conductor === '') return null;
+    return {conductor:conductor, tensile:conductor * 5};
+  }
+
+  // First priority: an Overlashed Bundle row owned by NEW COMCAST.
+  // This means the new cable is overlashed to a NEW COMCAST strand.
+  for(const e of entries){
+    if(e.isOverlashed && e.isNew && e.strand){
+      const res = resultFromStrand(e.strand);
+      if(res) return res;
+    }
+  }
+
+  // Second priority: for each NEW COMCAST cable row, look backward to the nearest
+  // Overlashed Bundle strand owned by COMCAST or NEW COMCAST.
+  // This handles new cable overlashed to an existing COMCAST strand.
+  for(const e of entries){
+    if(!e.isNew || !e.isCatv) continue;
+    for(let j=e.idx-1; j>=0; j--){
+      const prev = entries.find(x => x.idx === j);
+      if(!prev) continue;
+      if(prev.isOverlashed && prev.strand && prev.isComcastStrandOwner){
+        const res = resultFromStrand(prev.strand);
+        if(res) return res;
+      }
+      // Do not search too far beyond the current small Comm row block.
+      if(e.idx - j > 8) break;
+    }
+  }
+
+  // Final strand fallback: any COMCAST/NEW COMCAST Overlashed Bundle strand in Comm.
+  for(const e of entries){
+    if(e.isOverlashed && e.strand && e.isComcastStrandOwner){
+      const res = resultFromStrand(e.strand);
+      if(res) return res;
+    }
+  }
+
+  // Self-support fallback: no valid strand size found.
+  // Use the largest Tension (lbs) found on NEW COMCAST cable/component rows.
+  if(selfSupportTensions.length){
+    const conductor = Math.max(...selfSupportTensions);
+    return {conductor:conductor, tensile:conductor * 5};
+  }
+
+  return {conductor:'-', tensile:'-'};
+}
+function displayLoadValue(value){
+  const n = Number(value);
+  if(value === '' || value === null || value === undefined) return '-';
+  if(!Number.isFinite(n)) return value;
+  return n === 0 ? '-' : value;
+}
+
+
+
+function extractCableAverageSpanLength(pages){
+  // v16.8 fix for column V:
+  // Read Span Angle and Wire Length by their real table x-position, not by numeric index.
+  // This fixes rows where O-Calc omits optional columns such as Sag/Tension, which caused
+  // values like Wind Moment to be mistaken as Wire Length.
+  let inComm = false;
+  const angleGroups = {};
+  let pendingOwner = false;
+  let pendingDrop = false;
+  let pendingRowsLeft = 0;
+  let skipNext = false;
+
+  function sectionStop(t){
+    return /^Totals:/i.test(t) || /Load Summary by Owner/i.test(t) || /^Detailed Load Components:/i.test(t) ||
+      /^GenericEquipment\b/i.test(t) || /^Crossarm\b/i.test(t) || /^Riser\b/i.test(t) ||
+      /^Insulator\b/i.test(t) || /^Power\b/i.test(t) || /^Service\b/i.test(t) || /^Guy/i.test(t);
+  }
+
+  function cleanCellNumber(text){
+    const s = String(text || '').replace(/,/g,'').replace(/[−–—]/g,'-').trim();
+    if(!/^[-+]?\d+(?:\.\d+)?$/.test(s)) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function numericCellsFromRows(rows){
+    const cells = [];
+    rows.filter(Boolean).forEach(row => {
+      row.cells.forEach(c => {
+        const n = cleanCellNumber(c.text);
+        if(n !== null){
+          cells.push({x:c.x, y:c.y, value:n, text:String(c.text || '').trim()});
+        }
+      });
+    });
+    return cells.sort((a,b)=>a.x-b.x);
+  }
+
+  function valueNearX(cells, minX, maxX){
+    const list = cells.filter(c => c.x >= minX && c.x <= maxX);
+    if(!list.length) return null;
+    const mid = (minX + maxX) / 2;
+    list.sort((a,b)=>Math.abs(a.x-mid)-Math.abs(b.x-mid));
+    return list[0].value;
+  }
+
+  function addSpanFromRows(rows){
+    const cells = numericCellsFromRows(rows);
+    if(!cells.length) return;
+
+    // O-Calc Comm detailed table column bands from PDF text coordinates.
+    // These bands match the columns visually labeled:
+    // Lead/Span Length, Span Angle, Wire Length.
+    let leadSpan = valueNearX(cells, 440, 485);
+    let spanAngle = valueNearX(cells, 485, 525);
+    let wireLength = valueNearX(cells, 525, 570);
+
+    // Fallback for unusual PDF scaling/extraction: only use this when the x-band method fails.
+    // It handles both rows with tension columns and rows without tension columns.
+    if(spanAngle === null || wireLength === null){
+      const nums = rows.filter(Boolean).flatMap(r => numericValuesFromRow(r));
+      if(nums.length >= 13){
+        spanAngle = nums[6];
+        wireLength = nums[7];
+      }else if(nums.length >= 10){
+        spanAngle = nums[nums.length - 5];
+        wireLength = nums[nums.length - 4];
+      }
+    }
+
+    if(!Number.isFinite(spanAngle) || !Number.isFinite(wireLength)) return;
+    const key = String(fmtNum(spanAngle));
+    if(!angleGroups[key]) angleGroups[key] = [];
+    angleGroups[key].push(wireLength);
+  }
+
+  for(const pg of pages){
+    const rows = pg.rows;
+    skipNext = false;
+    for(let i=0;i<rows.length;i++){
+      if(skipNext){ skipNext = false; continue; }
+      const r = rows[i];
+      const t = r.text.replace(/\s+/g,' ').trim();
+      const next = rows[i+1];
+      const nt = next ? next.text.replace(/\s+/g,' ').trim() : '';
+
+      if(/^Comm$/i.test(t) || /^Detailed Load Components:\s*Comm\b/i.test(t) || /^Comm\s+Owner\b/i.test(t)){
+        inComm = true;
+        pendingOwner = false;
+        pendingDrop = false;
+        pendingRowsLeft = 0;
+        continue;
+      }
+      if(inComm && sectionStop(t)){
+        inComm = false;
+        pendingOwner = false;
+        pendingDrop = false;
+        pendingRowsLeft = 0;
+        continue;
+      }
+      if(inComm && /^Pole ID:/i.test(t)) continue;
+      if(!inComm) continue;
+
+      const currentOwner = isComcastOwnerRow(r, next);
+      const currentDrop = /\bDROP\b/i.test(t) || /\bDROP\b/i.test(nt);
+      const currentHasNums = hasManyNumbers(r);
+      const nextHasNums = next ? hasManyNumbers(next) : false;
+      const splitNewComcast = /\bNEW\b/i.test(t) && /\bCOMCAST\b/i.test(nt) && !/\bOTHER\b/i.test(nt);
+
+      if(splitNewComcast && (currentHasNums || nextHasNums)){
+        if(!currentDrop){
+          addSpanFromRows([r, next]);
+        }
+        skipNext = true;
+        pendingOwner = false;
+        pendingDrop = false;
+        pendingRowsLeft = 0;
+        continue;
+      }
+
+      if(currentOwner && !currentHasNums){
+        pendingOwner = true;
+        pendingDrop = currentDrop;
+        pendingRowsLeft = 3;
+        continue;
+      }
+
+      if(currentHasNums){
+        const ownerIsComcast = currentOwner || pendingOwner;
+        const isDrop = currentDrop || pendingDrop;
+        if(ownerIsComcast && !isDrop){
+          addSpanFromRows([r]);
+        }
+        pendingOwner = false;
+        pendingDrop = false;
+        pendingRowsLeft = 0;
+        continue;
+      }
+
+      if(pendingRowsLeft > 0){
+        pendingRowsLeft -= 1;
+        pendingDrop = pendingDrop || currentDrop;
+        if(pendingRowsLeft === 0){
+          pendingOwner = false;
+          pendingDrop = false;
+        }
+      }
+    }
+  }
+
+  const angleAverages = Object.values(angleGroups)
+    .filter(list => list.length)
+    .map(list => list.reduce((a,b)=>a+b,0) / list.length);
+  if(!angleAverages.length) return '-';
+
+  const finalAverage = angleAverages.reduce((a,b)=>a+b,0) / angleAverages.length;
+  return fmtNum(finalAverage);
+}
+
+function getTodayMMDDYYYY(){
+  const today = new Date();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  const yyyy = today.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
 async function processFiles(){
   const files = [...document.getElementById('pdfInput').files];
+  const jobNumber = String(document.getElementById('jobNumberInput')?.value || '').trim();
+  const statusDate = getTodayMMDDYYYY();
   const status = document.getElementById('status');
   finalRows = [];
   document.getElementById('downloadBtn').disabled = true;
@@ -398,9 +818,12 @@ async function processFiles(){
       const {pages, fullText} = await readPdf(file);
       const {lat, lon} = extractLatLong(pages, fullText);
       const ownerSummary = extractOwnerSummary(pages);
+      const constructionGrade = extractConstructionGrade(pages, fullText);
+      const cableInfo = extractNewComcastTension(pages);
+      const cableAverageSpanLength = extractCableAverageSpanLength(pages);
       const wind = extractCommWindMoment(pages);
       const values = {
-        'Job Number':'',
+        'Job Number':jobNumber,
         'Pole Sequence':getPoleSequence(file.name),
         '_sort': getSeqInfo(file.name),
         'ORA ID':'',
@@ -410,7 +833,7 @@ async function processFiles(){
         'Attachment owner':'Comcast',
         'Attachment identifying Number':'',
         'Attachment status':'Submitted',
-        'Attachment status date':'',
+        'Attachment status date':statusDate,
         'Support structure':'',
         'abandoned attachment':'',
         'voltage attachment':'Low',
@@ -419,17 +842,17 @@ async function processFiles(){
         'Attachment Description':'Bundle',
         'Attachment Dimensions':'',
         'Attachment Weight':'',
-        'Grade of Construction':'',
-        'Conductor Tension':'',
-        'Cable Tensile Strength':'',
-        'Cable Average Span Length':'',
-        'Wind Loading on the Attachment':wind,
-        'Vertical Loading':ownerSummary.vertical,
-        'Bending Moment due to the Attachment':ownerSummary.bending
+        'Grade of Construction':constructionGrade,
+        'Conductor Tension':cableInfo.conductor,
+        'Cable Tensile Strength':cableInfo.tensile,
+        'Cable Average Span Length':cableAverageSpanLength,
+        'Wind Loading on the Attachment':displayLoadValue(wind),
+        'Vertical Loading':displayLoadValue(ownerSummary.vertical),
+        'Bending Moment due to the Attachment':displayLoadValue(ownerSummary.bending)
       };
       finalRows.push(values);
     }catch(e){
-      finalRows.push({'Pole Sequence':getPoleSequence(file.name), '_sort': getSeqInfo(file.name), 'Attachment owner':'Comcast','Attachment status':'ERROR: '+e.message});
+      finalRows.push({'Job Number':jobNumber, 'Pole Sequence':getPoleSequence(file.name), '_sort': getSeqInfo(file.name), 'Attachment owner':'Comcast','Attachment status':'ERROR: '+e.message, 'Attachment status date':statusDate});
     }
   }
   finalRows.sort((a,b)=>
@@ -463,7 +886,18 @@ function downloadExcel(){
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Pole Attachment Data');
   ws['!cols'] = HEADERS.map(h => ({wch: Math.min(Math.max(h.length+2, 12), 34)}));
-  XLSX.writeFile(wb, 'Pole Attachment Data.xlsx');
+
+  // Center-align all exported cells (supported by spreadsheet apps that honor SheetJS cell styles).
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for(let R = range.s.r; R <= range.e.r; ++R){
+    for(let C = range.s.c; C <= range.e.c; ++C){
+      const addr = XLSX.utils.encode_cell({r:R, c:C});
+      if(!ws[addr]) continue;
+      ws[addr].s = { alignment: { horizontal: 'center', vertical: 'center' } };
+    }
+  }
+
+  XLSX.writeFile(wb, 'Pole Attachment Data.xlsx', {cellStyles:true});
 }
 
 document.getElementById('processBtn').addEventListener('click', processFiles);
