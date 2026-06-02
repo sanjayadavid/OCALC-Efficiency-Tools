@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>VITAL COMPARISON Generator v4.1</title>
+<title>VITAL COMPARISON Generator v4.2</title>
 <style>
   body{font-family:Arial,Helvetica,sans-serif;background:#f5f7fb;margin:0;padding:24px;color:#1f2937}
   .wrap{max-width:1050px;margin:auto;background:white;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.08);padding:24px}
@@ -12,7 +12,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>VITAL COMPARISON Generator v4.1</h1>
+  <h1>VITAL COMPARISON Generator v4.2</h1>
   <p>Aplikasi lokal HTML untuk generate spreadsheet VITAL_COMPARISON dari VITAL_DATASHEET, PDC SHEETS REDLINE per sequence, dan optional PDF OCALC report.</p>
   <div class="note"><b>Catatan:</b> PDC SHEETS REDLINE sekarang bisa di-upload sebagai beberapa PDF per sequence agar matching lebih akurat. Nama file sebaiknya berisi sequence. PDF OCALC bersifat optional; jika tidak di-upload, kolom OCALC/Riser/VGR/C-TRUSS/Note dikosongkan.</div>
 
@@ -37,7 +37,7 @@ function log(s){logEl.textContent += s+'\n'; logEl.scrollTop=logEl.scrollHeight;
 function clean(v){return (v===undefined||v===null)?'':String(v).trim();}
 function norm(v){let s=clean(v).replace(/,/g,''); if(s==='-'||s==='') return null; let n=parseFloat(s); return isNaN(n)?null:n;}
 function same(a,b){let x=norm(a), y=norm(b); if(x!==null&&y!==null) return Math.abs(x-y)<0.01; return clean(a).toUpperCase()===clean(b).toUpperCase() && clean(a)!=='';}
-function seqKey(s){s=clean(s).toUpperCase(); let m=s.match(/P?\s*(\d{2,4})/); return m?'P'+m[1]:s;}
+function seqKey(s){s=clean(s).toUpperCase().replace(/\s+/g,''); let m=s.match(/^P?(\d{2,5}[A-Z]?)$/) || s.match(/P?\s*(\d{2,5}[A-Z]?)/); return m?'P'+m[1]:s;}
 function valOrDash(v){v=clean(v); return v===''?' -'.trim():v;}
 function glcOrDash(v){const n=norm(v); if(n===null || Math.abs(n)<0.01) return '-'; return clean(v);}
 function validGLC(v){const n=norm(v); return n!==null && Math.abs(n)>=0.01;}
@@ -100,7 +100,7 @@ async function ocrPage(page){
 }
 function seqFromFileName(name){
   const base=clean(name).toUpperCase();
-  let m=base.match(/\bP\s*[-_ ]?(\d{2,4})\b/) || base.match(/^\s*(\d{2,4})\b/) || base.match(/\b(\d{2,4})\b/);
+  let m=base.match(/\bP\s*[-_ ]?(\d{2,5}[A-Z]?)\b/) || base.match(/^\s*(\d{2,5}[A-Z]?)\b/) || base.match(/\b(\d{2,5}[A-Z]?)\b/);
   return m ? seqKey(m[1]) : '';
 }
 async function parsePDCFile(file, forcedSeq=''){
@@ -110,8 +110,8 @@ async function parsePDCFile(file, forcedSeq=''){
     log('OCR PDC '+file.name+' page '+i+' / '+pdf.numPages+'...');
     const txt=await ocrPage(await pdf.getPage(i));
     const t=txt.replace(/\r/g,'');
-    let scid=forcedSeq || (t.match(/Scid\s*[:;]?\s*(\d{2,4})/i)||t.match(/\b(P?\d{2,4})\b[\s\S]{0,80}Pole\s+Tag/i)||[])[1];
-    if(!scid){let m=t.match(/\n\s*(\d{2,4})\s*\n/); if(m) scid=m[1];}
+    let scid=forcedSeq || (t.match(/Scid\s*[:;]?\s*(\d{2,5}[A-Z]?)/i)||t.match(/\b(P?\d{2,5}[A-Z]?)\b[\s\S]{0,80}Pole\s+Tag/i)||[])[1];
+    if(!scid){let m=t.match(/\n\s*(\d{2,5}[A-Z]?)\s*\n/); if(m) scid=m[1];}
     if(!scid) {log('  - Sequence/SCID tidak terbaca pada page '+i); continue;}
     const key=seqKey(scid);
     let height=(t.match(/Pole\s+Height\s*[:;]?\s*(\d+(?:\.\d+)?)/i)||[])[1]||'';
@@ -150,7 +150,7 @@ async function extractPdfText(file){
 }
 function parseOcalcText(fileName, text){
   const t=text.replace(/\r/g,'');
-  let seq=(fileName.match(/^(\d{2,4})\b/)||t.match(/Pole\s+Num\s*:\s*(\d{2,4})/i)||t.match(/Pole\s+ID\s*:\s*(\d{2,4})/i)||[])[1];
+  let seq=(fileName.match(/^(\d{2,5}[A-Z]?)\b/i)||t.match(/Pole\s+Num\s*:\s*(\d{2,5}[A-Z]?)/i)||t.match(/Pole\s+ID\s*:\s*(\d{2,5}[A-Z]?)/i)||[])[1];
   if(!seq) return null;
   const key=seqKey(seq);
   const plc=t.match(/Pole\s+Length\s*\/\s*Class\s*:\s*(\d+(?:\.\d+)?)\s*\/\s*([A-Z0-9\-]+)/i);
@@ -367,7 +367,7 @@ async function buildWorkbook(data,pdc,ocalc){
 async function downloadWorkbook(wb){
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='VITAL_COMPARISON_GENERATED_v4_1.xlsx'; a.click(); URL.revokeObjectURL(a.href);
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='VITAL_COMPARISON_GENERATED_v4_2.xlsx'; a.click(); URL.revokeObjectURL(a.href);
 }
 runBtn.onclick=async()=>{
   logEl.textContent=''; statusEl.textContent=''; runBtn.disabled=true;
@@ -379,7 +379,7 @@ runBtn.onclick=async()=>{
     const ocalc=oc.length?await parseOcalc(oc):{};
     const wb=await buildWorkbook(datas,pdc,ocalc);
     await downloadWorkbook(wb);
-    statusEl.textContent='Selesai. File XLSX v4.1.1 sudah di-download.'; log('SELESAI: VITAL_COMPARISON_GENERATED_v4_1.xlsx');
+    statusEl.textContent='Selesai. File XLSX v4.2.1 sudah di-download.'; log('SELESAI: VITAL_COMPARISON_GENERATED_v4_2.xlsx');
   }catch(e){log('ERROR: '+e.message); statusEl.textContent='Error: '+e.message;}
   finally{runBtn.disabled=false;}
 };
