@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>VITAL COMPARISON Generator v4.2</title>
+<title>VITAL COMPARISON Generator v5</title>
 <style>
   body{font-family:Arial,Helvetica,sans-serif;background:#f5f7fb;margin:0;padding:24px;color:#1f2937}
   .wrap{max-width:1050px;margin:auto;background:white;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.08);padding:24px}
@@ -12,7 +12,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>VITAL COMPARISON Generator v4.2</h1>
+  <h1>VITAL COMPARISON Generator v5</h1>
   <p>Aplikasi lokal HTML untuk generate spreadsheet VITAL_COMPARISON dari VITAL_DATASHEET, PDC SHEETS REDLINE per sequence, dan optional PDF OCALC report.</p>
   <div class="note"><b>Catatan:</b> PDC SHEETS REDLINE sekarang bisa di-upload sebagai beberapa PDF per sequence agar matching lebih akurat. Nama file sebaiknya berisi sequence. PDF OCALC bersifat optional; jika tidak di-upload, kolom OCALC/Riser/VGR/C-TRUSS/Note dikosongkan.</div>
 
@@ -258,15 +258,39 @@ function countRiserAndVgrFromSection(sec){
 function buildNote(row){
   if(!row.oHeight&&!row.oClass&&!row.oGLC) return '';
   const groups={DATASHEET:[],PDC:[]};
-  if(!(same(row.dsHeight,row.pdcHeight)&&same(row.oHeight,row.dsHeight))){ if(same(row.oHeight,row.dsHeight)) groups.DATASHEET.push('POLE HEIGHT'); else if(same(row.oHeight,row.pdcHeight)) groups.PDC.push('POLE HEIGHT'); }
-  if(!(same(row.dsClass,row.pdcClass)&&same(row.oClass,row.dsClass))){ if(same(row.oClass,row.dsClass)) groups.DATASHEET.push('CLASS'); else if(same(row.oClass,row.pdcClass)) groups.PDC.push('CLASS'); }
-  if(!(same(row.dsGLC,row.pdcGLC)&&same(row.oGLC,row.dsGLC))){ if(same(row.oGLC,row.dsGLC)) groups.DATASHEET.push('GLC'); else if(same(row.oGLC,row.pdcGLC)) groups.PDC.push('GLC'); }
+  const extraParts=[];
+
+  if(!(same(row.dsHeight,row.pdcHeight)&&same(row.oHeight,row.dsHeight))){
+    if(same(row.oHeight,row.dsHeight)) groups.DATASHEET.push('POLE HEIGHT');
+    else if(same(row.oHeight,row.pdcHeight)) groups.PDC.push('POLE HEIGHT');
+  }
+
+  if(!(same(row.dsClass,row.pdcClass)&&same(row.oClass,row.dsClass))){
+    if(same(row.oClass,row.dsClass)) groups.DATASHEET.push('CLASS');
+    else if(same(row.oClass,row.pdcClass)) groups.PDC.push('CLASS');
+  }
+
+  const dsGlcValid=validGLC(row.dsGLC);
+  const pdcGlcValid=validGLC(row.pdcGLC);
+  const ocalcGlcValid=validGLC(row.oGLC);
+
+  if(!dsGlcValid && !pdcGlcValid){
+    extraParts.push("USING MANUFACTURER'S GLC");
+  }else if(!dsGlcValid && pdcGlcValid && ocalcGlcValid && !same(row.oGLC,row.pdcGLC)){
+    extraParts.push("USING MANUFACTURER'S GLC");
+  }else{
+    if(!(same(row.dsGLC,row.pdcGLC)&&same(row.oGLC,row.dsGLC))){
+      if(same(row.oGLC,row.dsGLC)) groups.DATASHEET.push('GLC');
+      else if(same(row.oGLC,row.pdcGLC)) groups.PDC.push('GLC');
+    }
+  }
+
   const parts=[];
   for(const src of ['DATASHEET','PDC']) if(groups[src].length){
     const arr=groups[src]; let label=arr.length>1?arr.slice(0,-1).join(', ')+' AND '+arr.slice(-1):arr[0];
     parts.push(label+' FOLLOWING '+src);
   }
-  return parts.join(', ');
+  return parts.concat(extraParts).join(', ');
 }
 
 function excelFill(color){return {type:'pattern',pattern:'solid',fgColor:{argb:'FF'+color}};}
@@ -367,7 +391,7 @@ async function buildWorkbook(data,pdc,ocalc){
 async function downloadWorkbook(wb){
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='VITAL_COMPARISON_GENERATED_v4_2.xlsx'; a.click(); URL.revokeObjectURL(a.href);
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='VITAL_COMPARISON_GENERATED_v5.xlsx'; a.click(); URL.revokeObjectURL(a.href);
 }
 runBtn.onclick=async()=>{
   logEl.textContent=''; statusEl.textContent=''; runBtn.disabled=true;
@@ -379,7 +403,7 @@ runBtn.onclick=async()=>{
     const ocalc=oc.length?await parseOcalc(oc):{};
     const wb=await buildWorkbook(datas,pdc,ocalc);
     await downloadWorkbook(wb);
-    statusEl.textContent='Selesai. File XLSX v4.2.1 sudah di-download.'; log('SELESAI: VITAL_COMPARISON_GENERATED_v4_2.xlsx');
+    statusEl.textContent='Selesai. File XLSX v5.1 sudah di-download.'; log('SELESAI: VITAL_COMPARISON_GENERATED_v5.xlsx');
   }catch(e){log('ERROR: '+e.message); statusEl.textContent='Error: '+e.message;}
   finally{runBtn.disabled=false;}
 };
