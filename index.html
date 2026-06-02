@@ -16,7 +16,7 @@
       justify-content: center;
     }
     .wrap {
-      max-width: 900px;
+      max-width: 1100px;
       margin: 28px auto;
       padding: 0 18px;
       width: 100%;
@@ -110,20 +110,27 @@
   <div class="wrap">
     <div class="card">
       <h1>O-Calc Efficiency Tools</h1>
-      <p class="subtitle">Browser-based utilities for O-Calc PDF processing and pole attachment data management</p>
+      <p class="subtitle">Browser-based utilities for O-Calc PDF processing, PDC sheet preparation, and pole attachment data management</p>
       
       <div class="tools-grid">
+        <a href="pdc_scid_pdf_separator.html" class="tool-card">
+          <div class="tool-icon">✂️</div>
+          <h2>PDC SCID PDF Separator</h2>
+          <p>Separate combined PDC Sheets PDF into individual PDF files using detected SCID values as the output file names.</p>
+          <span class="version">v1.1</span>
+        </a>
+
         <a href="ocalc_pole_attachment_app.html" class="tool-card">
           <div class="tool-icon">📄</div>
           <h2>Pole Attachment Data</h2>
-          <p>Extract sorted P-sequence, coordinates, wind loading, vertical load, and bending moment from O-Calc PDF reports. Export to Excel.</p>
+          <p>Extract sorted P-sequence, coordinates, wind loading, vertical load, bending moment, cable tension, and average span length from O-Calc PDF reports. Export to Excel.</p>
           <span class="version">v16.8</span>
         </a>
         
         <a href="vital_comparison_generator.html" class="tool-card">
           <div class="tool-icon">📊</div>
           <h2>VITAL Comparison Generator</h2>
-          <p>Generate VITAL_COMPARISON spreadsheet from VITAL_DATASHEET, PDC SHEETS REDLINE, and optional O-Calc PDF reports.</p>
+          <p>Generate VITAL_COMPARISON spreadsheet from VITAL_DATASHEET, separated PDC SHEETS REDLINE, and optional O-Calc PDF reports.</p>
           <span class="version">v4.1</span>
         </a>
       </div>
