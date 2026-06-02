@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>O-Calc PDF to Pole Attachment Data v16.8</title>
+  <title>O-Calc PDF to Pole Attachment Data v16.9</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -17,7 +17,7 @@
 <body>
 <div class="wrap">
   <div class="card">
-    <h1>O-Calc PDF → Pole Attachment Data Excel <span style="font-size:14px;color:#667085">v16.8</span></h1>
+    <h1>O-Calc PDF → Pole Attachment Data Excel <span style="font-size:14px;color:#667085">v16.9</span></h1>
     <div class="muted">Upload one or more O-Calc PDF reports. The app extracts sorted P-sequence, latitude, longitude, Comcast/New Comcast wind, vertical load, and bending moment, then exports an Excel file.</div>
   </div>
   <div class="card drop">
@@ -434,7 +434,7 @@ function extractCommWindMoment(pages){
 
 
 function extractNewComcastTension(pages){
-  // v16.8 logic for columns T and U:
+  // v16.9 logic for columns T and U:
   // 1) Work only in Detailed Load Components -> Comm.
   // 2) First priority: detect strand size from related Overlashed Bundle rows:
   //      6M   -> 1200
@@ -638,10 +638,10 @@ function displayLoadValue(value){
 
 
 function extractCableAverageSpanLength(pages){
-  // v16.8 fix for column V:
-  // Read Span Angle and Wire Length by their real table x-position, not by numeric index.
-  // This fixes rows where O-Calc omits optional columns such as Sag/Tension, which caused
-  // values like Wind Moment to be mistaken as Wire Length.
+  // v16.9 fix for column V:
+  // Read Span Angle and Lead/Span Length by their real table x-position, not by numeric index.
+  // Cable Average Span Length must use Lead/Span Length (ft), not Wire Length (ft).
+  // This preserves all previous Comm owner/DROP/multi-page logic.
   let inComm = false;
   const angleGroups = {};
   let pendingOwner = false;
@@ -690,27 +690,28 @@ function extractCableAverageSpanLength(pages){
     // O-Calc Comm detailed table column bands from PDF text coordinates.
     // These bands match the columns visually labeled:
     // Lead/Span Length, Span Angle, Wire Length.
+    // For column V, use Lead/Span Length, not Wire Length.
     let leadSpan = valueNearX(cells, 440, 485);
     let spanAngle = valueNearX(cells, 485, 525);
     let wireLength = valueNearX(cells, 525, 570);
 
     // Fallback for unusual PDF scaling/extraction: only use this when the x-band method fails.
     // It handles both rows with tension columns and rows without tension columns.
-    if(spanAngle === null || wireLength === null){
+    if(leadSpan === null || spanAngle === null){
       const nums = rows.filter(Boolean).flatMap(r => numericValuesFromRow(r));
       if(nums.length >= 13){
+        leadSpan = nums[5];
         spanAngle = nums[6];
-        wireLength = nums[7];
       }else if(nums.length >= 10){
+        leadSpan = nums[nums.length - 6];
         spanAngle = nums[nums.length - 5];
-        wireLength = nums[nums.length - 4];
       }
     }
 
-    if(!Number.isFinite(spanAngle) || !Number.isFinite(wireLength)) return;
+    if(!Number.isFinite(spanAngle) || !Number.isFinite(leadSpan)) return;
     const key = String(fmtNum(spanAngle));
     if(!angleGroups[key]) angleGroups[key] = [];
-    angleGroups[key].push(wireLength);
+    angleGroups[key].push(leadSpan);
   }
 
   for(const pg of pages){
