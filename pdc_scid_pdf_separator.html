@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDC SCID PDF Separator v1.1</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    :root { --bg:#f5f7fb; --card:#fff; --ink:#1f2937; --muted:#6b7280; --blue:#2563eb; --green:#16a34a; --red:#dc2626; --border:#d1d5db; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--ink); }
+    .wrap { max-width:1100px; margin:28px auto; padding:0 16px; }
+    .card { background:var(--card); border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 8px 24px rgba(15,23,42,.08); padding:22px; margin-bottom:16px; }
+    h1 { margin:0 0 8px; font-size:26px; }
+    h2 { margin:0 0 12px; font-size:18px; }
+    p { margin:6px 0; line-height:1.45; color:var(--muted); }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    input[type=file] { border:1px dashed var(--border); padding:14px; border-radius:10px; background:#fafafa; width:100%; }
+    button { border:0; padding:11px 16px; border-radius:10px; cursor:pointer; font-weight:700; background:var(--blue); color:#fff; }
+    button.secondary { background:#475569; }
+    button.green { background:var(--green); }
+    button:disabled { background:#9ca3af; cursor:not-allowed; }
+    label { color:#374151; font-weight:600; }
+    .opt { display:flex; gap:8px; align-items:center; padding:8px 0; }
+    .progress { height:12px; border-radius:999px; background:#e5e7eb; overflow:hidden; margin-top:12px; }
+    .bar { height:100%; width:0%; background:var(--blue); transition:width .2s; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; font-size:14px; }
+    th, td { border-bottom:1px solid #e5e7eb; padding:9px; text-align:left; vertical-align:top; }
+    th { background:#f8fafc; color:#374151; }
+    .ok { color:var(--green); font-weight:700; }
+    .bad { color:var(--red); font-weight:700; }
+    .mono { font-family: Consolas, Monaco, monospace; }
+    .small { font-size:12px; color:var(--muted); }
+    .pill { display:inline-block; padding:3px 8px; border-radius:999px; background:#eef2ff; color:#3730a3; font-size:12px; font-weight:700; }
+    .hidden { display:none; }
+    textarea { width:100%; min-height:70px; border:1px solid var(--border); border-radius:10px; padding:10px; font-family:Consolas, Monaco, monospace; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>PDC SCID PDF Separator v1.1</h1>
+      <p>Upload satu PDF PDC Sheets gabungan. Tools ini akan membaca SCID pada tiap halaman, lalu membuat file PDF terpisah dengan nama hanya angka/huruf SCID-nya saja, contoh: 2080.pdf atau 2085A.pdf.</p>
+      <p class="small">Deteksi utama dari teks PDF. Jika SCID tidak terbaca, aktifkan OCR fallback untuk membaca dari tampilan gambar halaman.</p>
+    </div>
+
+    <div class="card">
+      <h2>1. Upload PDF</h2>
+      <input id="pdfFile" type="file" accept="application/pdf" />
+      <div class="row" style="margin-top:12px">
+        <button id="scanBtn">Scan SCID</button>
+        <button id="splitBtn" class="green" disabled>Download ZIP Hasil Separasi</button>
+        <button id="clearBtn" class="secondary">Clear</button>
+      </div>
+      <div class="opt"><input id="ocrFallback" type="checkbox" checked /> <label for="ocrFallback">Gunakan OCR fallback jika SCID tidak terbaca dari teks PDF</label></div>
+      <div class="opt"><input id="strictScid" type="checkbox" checked /> <label for="strictScid">Prioritaskan pola “Scid:” / “SCID:” seperti pada contoh</label></div>
+      <div class="opt"><input id="includePage" type="checkbox" /> <label for="includePage">Tambahkan nomor halaman di file name, contoh: 001_2080.pdf</label></div>
+      <div class="progress"><div id="bar" class="bar"></div></div>
+      <p id="status" class="small">Belum ada file diproses.</p>
+    </div>
+
+    <div id="resultCard" class="card hidden">
+      <h2>2. Hasil Deteksi</h2>
+      <p>Nama file masih bisa diedit sebelum download ZIP.</p>
+      <table>
+        <thead><tr><th>Page</th><th>SCID terdeteksi</th><th>Nama file output</th><th>Metode</th><th>Status</th></tr></thead>
+        <tbody id="resultBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Catatan Deteksi</h2>
+      <p>Regex default mencari format seperti <span class="mono">Scid: 2080</span>, <span class="mono">SCID 2080A</span>, atau <span class="mono">Scid: 121316348</span>. Nama file output hanya memakai nilai di belakang label SCID, misalnya <span class="mono">2080.pdf</span> atau <span class="mono">2085A.pdf</span>.</p>
+      <p>Kalau ada halaman yang gagal terbaca, hasilnya akan diberi nama <span class="mono">UNKNOWN_PAGE_...</span> dan bisa diedit manual di tabel sebelum download.</p>
+    </div>
+  </div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const pdfInput = document.getElementById('pdfFile');
+const scanBtn = document.getElementById('scanBtn');
+const splitBtn = document.getElementById('splitBtn');
+const clearBtn = document.getElementById('clearBtn');
+const statusEl = document.getElementById('status');
+const bar = document.getElementById('bar');
+const resultCard = document.getElementById('resultCard');
+const resultBody = document.getElementById('resultBody');
+
+let originalBytes = null;
+let pageResults = [];
+let loadedPdfName = 'pdc_sheets';
+
+function setStatus(msg, pct = null) {
+  statusEl.textContent = msg;
+  if (pct !== null) bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+}
+
+function sanitizeFileName(name) {
+  return String(name || '')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 120) || 'UNKNOWN';
+}
+
+function normalizeText(s) {
+  return (s || '').replace(/[\u00A0]/g, ' ').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function extractScidFromText(rawText, strict = true) {
+  const text = normalizeText(rawText);
+  const candidates = [];
+
+  // Strong pattern: Scid: 2080 / SCID 2080A / S C I D : 2080A
+  const strongPatterns = [
+    /\bS\s*C\s*I\s*D\s*[:#\-]?\s*([A-Z0-9][A-Z0-9\-]{1,24})\b/ig,
+    /\bScid\s*[:#\-]?\s*([A-Z0-9][A-Z0-9\-]{1,24})\b/ig
+  ];
+  for (const re of strongPatterns) {
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      candidates.push({ value: m[1], score: 100 });
+    }
+  }
+
+  if (!strict || candidates.length === 0) {
+    // Fallback around bottom info block: Pole Tag + SCID-like values, useful if OCR reads label poorly.
+    const fallbackPatterns = [
+      /\b(?:Pole\s*)?Tag\s*[:#\-]?\s*([A-Z0-9][A-Z0-9\-]{2,24})\b/ig,
+      /\b(?:ID|Sheet|Node)\s*[:#\-]?\s*([A-Z0-9][A-Z0-9\-]{2,24})\b/ig
+    ];
+    for (const re of fallbackPatterns) {
+      let m;
+      while ((m = re.exec(text)) !== null) candidates.push({ value: m[1], score: 40 });
+    }
+  }
+
+  const cleaned = candidates
+    .map(c => ({ value: sanitizeFileName(c.value.toUpperCase()), score: c.score }))
+    .filter(c => /^[A-Z0-9][A-Z0-9\-]{1,24}$/.test(c.value))
+    .filter(c => !['PAGE','POLE','TAG','OWNER','CLASS','HEIGHT','CIRCUMFERENCE','UNKNOWN'].includes(c.value));
+
+  if (cleaned.length === 0) return null;
+  cleaned.sort((a,b) => b.score - a.score || b.value.length - a.value.length);
+  return cleaned[0].value;
+}
+
+async function renderPageForOCR(pdfDoc, pageNum) {
+  const page = await pdfDoc.getPage(pageNum);
+  const viewport = page.getViewport({ scale: 2.0 });
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas;
+}
+
+async function ocrCanvas(canvas) {
+  // Crop right-bottom area first because SCID is normally there. If no result, caller can OCR full canvas.
+  const crop = document.createElement('canvas');
+  const cw = Math.floor(canvas.width * 0.38);
+  const ch = Math.floor(canvas.height * 0.24);
+  const sx = canvas.width - cw;
+  const sy = canvas.height - ch;
+  crop.width = cw;
+  crop.height = ch;
+  crop.getContext('2d').drawImage(canvas, sx, sy, cw, ch, 0, 0, cw, ch);
+  const res = await Tesseract.recognize(crop, 'eng');
+  return res.data.text || '';
+}
+
+function renderResults() {
+  resultBody.innerHTML = '';
+  const includePage = document.getElementById('includePage').checked;
+  pageResults.forEach((r, idx) => {
+    const tr = document.createElement('tr');
+    const scidText = r.scid ? `<span class="pill">${r.scid}</span>` : '<span class="bad">Tidak terbaca</span>';
+    const defaultFile = r.fileName || makeDefaultFileName(r.page, r.scid, includePage);
+    tr.innerHTML = `
+      <td>${r.page}</td>
+      <td>${scidText}</td>
+      <td><input data-idx="${idx}" class="fileNameInput" value="${defaultFile}" style="width:100%; padding:7px; border:1px solid var(--border); border-radius:8px" /></td>
+      <td>${r.method}</td>
+      <td>${r.scid ? '<span class="ok">OK</span>' : '<span class="bad">Edit manual</span>'}</td>
+    `;
+    resultBody.appendChild(tr);
+  });
+  resultCard.classList.remove('hidden');
+  splitBtn.disabled = pageResults.length === 0;
+}
+
+function makeDefaultFileName(page, scid, includePage) {
+  const base = scid ? `${scid}` : `UNKNOWN_PAGE_${String(page).padStart(3,'0')}`;
+  const name = includePage ? `${String(page).padStart(3,'0')}_${base}` : base;
+  return sanitizeFileName(name) + '.pdf';
+}
+
+document.getElementById('includePage').addEventListener('change', () => {
+  pageResults = pageResults.map(r => ({...r, fileName: makeDefaultFileName(r.page, r.scid, document.getElementById('includePage').checked)}));
+  if (pageResults.length) renderResults();
+});
+
+scanBtn.addEventListener('click', async () => {
+  const file = pdfInput.files && pdfInput.files[0];
+  if (!file) { alert('Pilih file PDF dulu.'); return; }
+  scanBtn.disabled = true; splitBtn.disabled = true; pageResults = []; resultBody.innerHTML = '';
+  loadedPdfName = file.name.replace(/\.pdf$/i, '') || 'pdc_sheets';
+
+  try {
+    originalBytes = await file.arrayBuffer();
+    const typed = new Uint8Array(originalBytes.slice(0));
+    const pdfDoc = await pdfjsLib.getDocument({ data: typed }).promise;
+    const total = pdfDoc.numPages;
+    const useOCR = document.getElementById('ocrFallback').checked;
+    const strict = document.getElementById('strictScid').checked;
+    const includePage = document.getElementById('includePage').checked;
+
+    for (let i = 1; i <= total; i++) {
+      setStatus(`Scanning page ${i} dari ${total}...`, Math.round((i-1)/total*100));
+      const page = await pdfDoc.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(it => it.str).join(' ');
+      let scid = extractScidFromText(pageText, strict);
+      let method = 'PDF text';
+
+      if (!scid && useOCR) {
+        setStatus(`OCR fallback page ${i} dari ${total}...`, Math.round((i-0.5)/total*100));
+        const canvas = await renderPageForOCR(pdfDoc, i);
+        const ocrText = await ocrCanvas(canvas);
+        scid = extractScidFromText(ocrText, strict);
+        method = scid ? 'OCR crop' : 'OCR crop gagal';
+      }
+
+      pageResults.push({ page: i, scid, method, fileName: makeDefaultFileName(i, scid, includePage) });
+    }
+    setStatus(`Selesai scan ${total} halaman. Cek tabel sebelum download.`, 100);
+    renderResults();
+  } catch (err) {
+    console.error(err);
+    setStatus('Error: ' + (err.message || err), 0);
+    alert('Gagal memproses PDF. Pastikan file PDF valid dan koneksi internet aktif untuk load library.');
+  } finally {
+    scanBtn.disabled = false;
+  }
+});
+
+splitBtn.addEventListener('click', async () => {
+  if (!originalBytes || pageResults.length === 0) return;
+  splitBtn.disabled = true;
+  try {
+    document.querySelectorAll('.fileNameInput').forEach(inp => {
+      const idx = Number(inp.dataset.idx);
+      let val = inp.value.trim();
+      if (!/\.pdf$/i.test(val)) val += '.pdf';
+      pageResults[idx].fileName = sanitizeFileName(val.replace(/\.pdf$/i, '')) + '.pdf';
+    });
+
+    const sourcePdf = await PDFLib.PDFDocument.load(originalBytes.slice(0));
+    const zip = new JSZip();
+    const usedNames = new Map();
+
+    for (let i = 0; i < pageResults.length; i++) {
+      setStatus(`Membuat PDF page ${i+1} dari ${pageResults.length}...`, Math.round(i/pageResults.length*100));
+      const outPdf = await PDFLib.PDFDocument.create();
+      const [copiedPage] = await outPdf.copyPages(sourcePdf, [i]);
+      outPdf.addPage(copiedPage);
+      const bytes = await outPdf.save();
+
+      let name = pageResults[i].fileName || `UNKNOWN_PAGE_${String(i+1).padStart(3,'0')}.pdf`;
+      const count = usedNames.get(name.toLowerCase()) || 0;
+      usedNames.set(name.toLowerCase(), count + 1);
+      if (count > 0) name = name.replace(/\.pdf$/i, `_${count + 1}.pdf`);
+      zip.file(name, bytes);
+    }
+
+    setStatus('Membuat ZIP...', 98);
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    saveAs(zipBlob, sanitizeFileName(loadedPdfName) + '_separated_by_SCID.zip');
+    setStatus('ZIP selesai dibuat.', 100);
+  } catch (err) {
+    console.error(err);
+    alert('Gagal membuat ZIP: ' + (err.message || err));
+    setStatus('Gagal membuat ZIP.', 0);
+  } finally {
+    splitBtn.disabled = false;
+  }
+});
+
+clearBtn.addEventListener('click', () => {
+  pdfInput.value = '';
+  originalBytes = null;
+  pageResults = [];
+  resultBody.innerHTML = '';
+  resultCard.classList.add('hidden');
+  splitBtn.disabled = true;
+  setStatus('Belum ada file diproses.', 0);
+});
+</script>
+</body>
+</html>
