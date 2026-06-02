@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>VITAL COMPARISON Generator v4</title>
+<title>VITAL COMPARISON Generator v4.1</title>
 <style>
   body{font-family:Arial,Helvetica,sans-serif;background:#f5f7fb;margin:0;padding:24px;color:#1f2937}
   .wrap{max-width:1050px;margin:auto;background:white;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.08);padding:24px}
@@ -12,7 +12,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>VITAL COMPARISON Generator v4</h1>
+  <h1>VITAL COMPARISON Generator v4.1</h1>
   <p>Aplikasi lokal HTML untuk generate spreadsheet VITAL_COMPARISON dari VITAL_DATASHEET, PDC SHEETS REDLINE per sequence, dan optional PDF OCALC report.</p>
   <div class="note"><b>Catatan:</b> PDC SHEETS REDLINE sekarang bisa di-upload sebagai beberapa PDF per sequence agar matching lebih akurat. Nama file sebaiknya berisi sequence. PDF OCALC bersifat optional; jika tidak di-upload, kolom OCALC/Riser/VGR/C-TRUSS/Note dikosongkan.</div>
 
@@ -271,7 +271,23 @@ function buildNote(row){
 
 function excelFill(color){return {type:'pattern',pattern:'solid',fgColor:{argb:'FF'+color}};}
 function thinBorder(){return {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};}
-function setCell(ws,r,c,value){const cell=ws.getCell(r,c); cell.value=value; cell.border=thinBorder(); cell.alignment={vertical:'middle',horizontal:'center'}; return cell;}
+function setCell(ws,r,c,value){
+  const cell=ws.getCell(r,c);
+  const numericCols=[4,5,6,8,10,11,12,13,14,16,18,19,20,22,23,25,26,27];
+  const decimalCols=[6,11,20,22,27];
+  let v=value;
+  if(numericCols.includes(c)){
+    const s=clean(v).replace(/,/g,'');
+    if(s!=='' && s!=='-' && !isNaN(Number(s))){
+      v=Number(s);
+      if(decimalCols.includes(c)) cell.numFmt='0.00';
+    }
+  }
+  cell.value=v;
+  cell.border=thinBorder();
+  cell.alignment={vertical:'middle',horizontal:'center'};
+  return cell;
+}
 function setHeader(ws,r,c,value){const cell=setCell(ws,r,c,value); cell.font={bold:true,underline:true}; cell.fill=excelFill(WHITE); return cell;}
 function setGroup(ws,r,c1,c2,value){ws.mergeCells(r,c1,r,c2); const cell=ws.getCell(r,c1); cell.value=value; cell.border=thinBorder(); cell.alignment={vertical:'middle',horizontal:'center'}; cell.font={bold:false}; cell.fill=excelFill(WHITE); for(let c=c1;c<=c2;c++){ws.getCell(r,c).border=thinBorder(); ws.getCell(r,c).fill=excelFill(WHITE);} }
 function paint(ws,r,c,color){if(!color) return; const cell=ws.getCell(r,c); cell.fill=excelFill(color); cell.border=thinBorder(); cell.alignment={vertical:'middle',horizontal:'center'};}
@@ -316,7 +332,7 @@ async function buildWorkbook(data,pdc,ocalc){
     row.mfgGLC=mfgGLC(row.dsHeight,row.dsClass);
     if(row.mfgGLC!=='' && row.mfgGLC!==null && row.mfgGLC!==undefined){
       const mg=parseFloat(row.mfgGLC);
-      if(!isNaN(mg)) row.mfgGLC=mg.toFixed(2);
+      if(!isNaN(mg)) row.mfgGLC=mg;
     } row.mfgClass=row.dsClass; row.note=buildNote(row); objects.push(row);
     const vals={1:row.seq,2:row.poleNumber,3:row.location,4:row.dsHeight,5:row.dsClass,6:row.dsGLC,8:row.pdcHeight,9:'',10:row.pdcClass,11:row.pdcGLC,12:row.riserQty,13:row.vgr,14:row.ctruss,16:row.varGLC,18:'',19:'',20:'',22:row.mfgGLC,23:row.mfgClass,25:row.oHeight,26:row.oClass,27:row.oGLC,28:row.note,29:''};
     for(let c=1;c<=29;c++) setCell(ws,r,c, vals[c]!==undefined?vals[c]:'');
@@ -351,7 +367,7 @@ async function buildWorkbook(data,pdc,ocalc){
 async function downloadWorkbook(wb){
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='VITAL_COMPARISON_GENERATED_v4.xlsx'; a.click(); URL.revokeObjectURL(a.href);
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='VITAL_COMPARISON_GENERATED_v4_1.xlsx'; a.click(); URL.revokeObjectURL(a.href);
 }
 runBtn.onclick=async()=>{
   logEl.textContent=''; statusEl.textContent=''; runBtn.disabled=true;
@@ -363,7 +379,7 @@ runBtn.onclick=async()=>{
     const ocalc=oc.length?await parseOcalc(oc):{};
     const wb=await buildWorkbook(datas,pdc,ocalc);
     await downloadWorkbook(wb);
-    statusEl.textContent='Selesai. File XLSX v4 sudah di-download.'; log('SELESAI: VITAL_COMPARISON_GENERATED_v4.xlsx');
+    statusEl.textContent='Selesai. File XLSX v4.1.1 sudah di-download.'; log('SELESAI: VITAL_COMPARISON_GENERATED_v4_1.xlsx');
   }catch(e){log('ERROR: '+e.message); statusEl.textContent='Error: '+e.message;}
   finally{runBtn.disabled=false;}
 };
