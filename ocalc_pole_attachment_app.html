@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>O-Calc PDF to Pole Attachment Data v17.1</title>
+  <title>O-Calc PDF to Pole Attachment Data v17.2</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
@@ -17,7 +17,7 @@
 <body>
 <div class="wrap">
   <div class="card">
-    <h1>O-Calc PDF → Pole Attachment Data Excel <span style="font-size:14px;color:#667085">v17.1</span></h1>
+    <h1>O-Calc PDF → Pole Attachment Data Excel <span style="font-size:14px;color:#667085">v17.2</span></h1>
     <div class="muted">Upload one or more O-Calc PDF reports. The app extracts sorted P-sequence, latitude, longitude, Comcast/New Comcast wind, vertical load, and bending moment, then exports an Excel file.</div>
   </div>
   <div class="card drop">
@@ -348,6 +348,15 @@ function extractCommWindMoment(pages){
       /^Insulator\b/i.test(t) || /^Power\b/i.test(t) || /^Service\b/i.test(t) || /^Guy/i.test(t);
   }
 
+  function rowOwnerIsComcast(row, nextRow, allRows){
+    // v17.2: Some PDFs place the owner text in a separate visual cell/line.
+    // Check both row text and owner-column cells near the same y-position so
+    // Overlashed Bundle rows owned by COMCAST/NEW COMCAST are not skipped.
+    const textOwner = isComcastOwnerRow(row, nextRow);
+    const nearOwner = ownerTextNear(row, allRows);
+    return textOwner || (/\b(NEW\s+COMCAST|COMCAST)\b/i.test(nearOwner) && !/\bOTHER\b/i.test(nearOwner));
+  }
+
   for(const pg of pages){
     const rows = pg.rows;
     skipNext = false;
@@ -380,11 +389,13 @@ function extractCommWindMoment(pages){
       if(inComm && /^Pole ID:/i.test(t)) continue;
       if(!inComm) continue;
 
-      const currentOwner = isComcastOwnerRow(r, next);
-      const currentDrop = /\bDROP\b/i.test(t) || /\bDROP\b/i.test(nt);
+      const splitNewComcast = /\bNEW\b/i.test(t) && /\bCOMCAST\b/i.test(nt) && !/\bOTHER\b/i.test(nt);
+      const currentOwner = rowOwnerIsComcast(r, next, rows);
+      // v17.2: DROP must apply to the current component row only.
+      // Do not mark a valid Overlashed Bundle as DROP just because the next extracted row is DROP.
+      const currentDrop = /\bDROP\b/i.test(t) || (splitNewComcast && /\bDROP\b/i.test(nt));
       const currentHasNums = hasManyNumbers(r);
       const nextHasNums = next ? hasManyNumbers(next) : false;
-      const splitNewComcast = /\bNEW\b/i.test(t) && /\bCOMCAST\b/i.test(nt) && !/\bOTHER\b/i.test(nt);
 
       // If NEW is on the first extracted row and COMCAST/numbers continue on the next,
       // combine both rows so the Wind Moment is not missed.
@@ -434,7 +445,7 @@ function extractCommWindMoment(pages){
 
 
 function extractNewComcastTension(pages){
-  // v17.1 logic for columns T and U:
+  // v17.2 logic for columns T and U:
   // 1) Work only in Detailed Load Components -> Comm.
   // 2) First priority: detect strand size from related Overlashed Bundle rows:
   //      6M   -> 1200
@@ -585,7 +596,7 @@ function extractNewComcastTension(pages){
     return {conductor:conductor, tensile:conductor * 5};
   }
 
-  // v17.1 special override:
+  // v17.2 special override:
   // If an actual NEW COMCAST Tension (lbs) value is 1630, use 1630 as the conductor tension.
   // This handles self-support continuation cases even when a 6M / 6.6M / 10M strand is present.
   // Other adjusted/slack tensions such as 175 must NOT override the strand mapping.
@@ -646,7 +657,7 @@ function displayLoadValue(value){
 
 
 function extractCableAverageSpanLength(pages){
-  // v17.1 fix for column V:
+  // v17.2 fix for column V:
   // Read Span Angle and Lead/Span Length by their real table x-position, not by numeric index.
   // Cable Average Span Length must use Lead/Span Length (ft), not Wire Length (ft).
   // This preserves all previous Comm owner/DROP/multi-page logic.
@@ -796,7 +807,7 @@ function extractCableAverageSpanLength(pages){
     }
   }
 
-  // v17.1: For each Span Angle direction, use the maximum Lead/Span Length,
+  // v17.2: For each Span Angle direction, use the maximum Lead/Span Length,
   // not the average of that angle. Then average those maximum values across directions.
   const angleMaxValues = Object.values(angleGroups)
     .filter(list => list.length)
