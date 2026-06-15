@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MNJ Perbantuan List Sorter</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f4f6f8;
+      color: #222;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 { margin: 0 0 8px; font-size: 26px; }
+    p { margin: 0 0 18px; color: #555; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 520px;
+      resize: vertical;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-family: Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.45;
+      white-space: pre;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 14px 0;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: bold;
+      background: #2563eb;
+      color: white;
+    }
+    button.secondary { background: #64748b; }
+    button.danger { background: #dc2626; }
+    .status {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #15803d;
+      min-height: 20px;
+    }
+    .hint {
+      font-size: 13px;
+      color: #666;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>MNJ Perbantuan List Sorter</h1>
+    <p>Paste the full list, then generate an MNJ-only sorted copyable output.</p>
+
+    <div class="grid">
+      <div class="card">
+        <label for="title">Output Title</label>
+        <input id="title" />
+
+        <label for="input">Input Full List</label>
+        <textarea id="input" placeholder="Paste your full Summary Perbantuan list here..."></textarea>
+
+        <div class="buttons">
+          <button onclick="generateOutput()">Generate Sorted List</button>
+          <button class="secondary" onclick="loadExample()">Load Example</button>
+          <button class="danger" onclick="clearAll()">Clear</button>
+        </div>
+        <div class="hint">
+          Only names with <b>(MNJ)</b> will be included. It detects section headers like <b>Summary Perbantuan Ke Comcast:</b> and keeps role/details like CS, QC, Jam 10, After Lunch, Perlu Training, etc.
+        </div>
+      </div>
+
+      <div class="card">
+        <label for="output">Copyable Output</label>
+        <textarea id="output" readonly placeholder="Your sorted output will appear here..."></textarea>
+        <div class="buttons">
+          <button onclick="copyOutput()">Copy Output</button>
+          <button class="secondary" onclick="downloadTxt()">Download TXT</button>
+        </div>
+        <div id="status" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    function getTodayTitle() {
+      const now = new Date();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      return `Perbantuan ${mm}/${dd}/${yyyy}`;
+    }
+
+    function setDefaultTitle() {
+      const titleInput = document.getElementById('title');
+      if (titleInput && !titleInput.value.trim()) {
+        titleInput.value = getTodayTitle();
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', setDefaultTitle);
+
+    const destinationOrder = [
+      'Comcast',
+      'Katapult',
+      'Scooper',
+      'CAS',
+      'MRE'
+    ];
+
+    const roleOrder = [
+      'QC',
+      'CS',
+      'Jam 10',
+      'After Lunch',
+      'MRE Proposed',
+      'Vicinity Map',
+      'MRE Existing'
+    ];
+
+    function normalizePart(text) {
+      return text.replace(/\s+/g, ' ').trim();
+    }
+
+    function cleanDestination(headerLine) {
+      return headerLine
+        .replace(/^Summary\s+Perbantuan\s+Ke\s+/i, '')
+        .replace(/:.*$/, '')
+        .trim();
+    }
+
+    function destinationRank(dest) {
+      const index = destinationOrder.findIndex(d => d.toLowerCase() === dest.toLowerCase());
+      return index === -1 ? 999 : index;
+    }
+
+    function roleRank(details) {
+      if (!details || details.length === 0) return 500;
+      const joined = details.join(' ').toLowerCase();
+      for (let i = 0; i < roleOrder.length; i++) {
+        if (joined.includes(roleOrder[i].toLowerCase())) return i;
+      }
+      return 500;
+    }
+
+    function parseList(raw) {
+      const lines = raw.split(/\r?\n/);
+      let currentDestination = '';
+      const items = [];
+      let originalIndex = 0;
+
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        if (/^Summary\s+Perbantuan\s+Ke\s+/i.test(line)) {
+          currentDestination = cleanDestination(line);
+          continue;
+        }
+
+        if (!line.includes('(MNJ)')) continue;
+
+        const parts = line.split(/\s*--?>\s*/).map(normalizePart).filter(Boolean);
+        const nameMatch = parts[0].match(/^(.+?)\s*\(MNJ\)/i);
+        if (!nameMatch) continue;
+
+        const name = normalizePart(nameMatch[1]);
+        const details = parts
+          .slice(1)
+          .filter(part => !/^confirmed$/i.test(part))
+          .map(normalizePart);
+
+        items.push({
+          name,
+          destination: currentDestination || 'Unknown',
+          details,
+          originalIndex: originalIndex++
+        });
+      }
+
+      return items;
+    }
+
+    function formatItem(item, number) {
+      const detailText = item.details.length ? item.details.join(' --> ') + ' --> ' : '';
+      return `${number}. ${item.name} --> ${detailText}Ke ${item.destination}`;
+    }
+
+    function generateOutput() {
+      const title = document.getElementById('title').value.trim() || 'Perbantuan';
+      const raw = document.getElementById('input').value;
+      const items = parseList(raw);
+
+      items.sort((a, b) => {
+        const destDiff = destinationRank(a.destination) - destinationRank(b.destination);
+        if (destDiff !== 0) return destDiff;
+
+        const roleDiff = roleRank(a.details) - roleRank(b.details);
+        if (roleDiff !== 0) return roleDiff;
+
+        return a.originalIndex - b.originalIndex;
+      });
+
+      const lines = [title, ''];
+      items.forEach((item, index) => lines.push(formatItem(item, index + 1)));
+
+      document.getElementById('output').value = lines.join('\n');
+      document.getElementById('status').textContent = `Generated ${items.length} MNJ names.`;
+    }
+
+    async function copyOutput() {
+      const output = document.getElementById('output');
+      if (!output.value.trim()) {
+        document.getElementById('status').textContent = 'Nothing to copy yet.';
+        return;
+      }
+      output.select();
+      output.setSelectionRange(0, 999999);
+
+      try {
+        await navigator.clipboard.writeText(output.value);
+        document.getElementById('status').textContent = 'Copied to clipboard.';
+      } catch (err) {
+        document.execCommand('copy');
+        document.getElementById('status').textContent = 'Copied to clipboard.';
+      }
+    }
+
+    function downloadTxt() {
+      const text = document.getElementById('output').value;
+      if (!text.trim()) {
+        document.getElementById('status').textContent = 'Generate output first.';
+        return;
+      }
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'perbantuan-mnj-sorted.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function clearAll() {
+      document.getElementById('input').value = '';
+      document.getElementById('output').value = '';
+      document.getElementById('status').textContent = '';
+      document.getElementById('title').value = getTodayTitle();
+    }
+
+    function loadExample() {
+      document.getElementById('input').value = `Summary Perbantuan Ke Katapult:\nFitta (MNJ) --> confirmed\nGina (MNJ) --> confirmed\nRio (MNJ) --> confirmed\nAgit (MNJ) --> confirmed\n\nSummary Perbantuan Ke Scooper:\nVirgy (MNJ) --> confirmed\n\nSummary Perbantuan Ke Comcast:\nRidwan (NS) --> CS --> confirmed\nSilvy (MNJ) --> QC --> confirmed\nMirna (MNJ) --> QC --> confirmed\nEgi (MNJ) --> CS --> confirmed\nAndre (MNJ) --> CS --> confirmed\n\nSummary Perbantuan Ke CAS:\nFirman (MNJ) --> CS --> confirmed\n\nSummary Perbantuan Ke MRE:\nChintya (MNJ) --> MRE Proposed --> training dulu --> confirmed\nRizko (MNJ) --> Vicinity Map --> confirmed\nAzdan (MNJ) --> MRE Existing --> Perlu Training --> confirmed`;
+      generateOutput();
+    }
+  </script>
+</body>
+</html>
