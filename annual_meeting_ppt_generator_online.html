@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Annual Meeting PPT Generator - Online v1.8</title>
+  <style>
+    :root{--bg:#0f172a;--panel:#111827;--card:#1f2937;--line:#334155;--text:#e5e7eb;--muted:#9ca3af;--accent:#38bdf8;--good:#22c55e;--bad:#ef4444;--warn:#f59e0b;}
+    *{box-sizing:border-box} body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:linear-gradient(120deg,#0f172a,#111827);color:var(--text)}
+    header{padding:24px 34px;border-bottom:1px solid var(--line);background:rgba(15,23,42,.88);position:sticky;top:0;z-index:5;backdrop-filter:blur(10px)}
+    h1{margin:0;font-size:25px}.sub{margin-top:8px;color:var(--muted)} h2{margin:4px 0 12px} h3{margin:18px 0 8px;color:#e0f2fe}
+    main{display:grid;grid-template-columns:430px 1fr;gap:20px;padding:22px;max-width:1500px;margin:auto}
+    .panel,.preview{background:rgba(31,41,55,.9);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+    label{display:block;font-weight:700;margin:13px 0 6px} input,textarea,select{width:100%;background:#0b1220;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit} textarea{min-height:92px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    button{border:0;border-radius:12px;padding:11px 13px;font-weight:800;cursor:pointer}.primary{background:var(--accent);color:#082f49}.ghost{background:#334155;color:#fff}.danger{background:#7f1d1d;color:#fecaca}.mini{font-size:12px;padding:8px 10px;margin-top:8px}
+    .actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}.hint{font-size:12px;color:var(--muted);line-height:1.45}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:5px 9px;color:var(--muted);font-size:12px;margin:4px 4px 0 0}.status{font-size:12px;color:#bae6fd;margin-top:6px;white-space:pre-wrap}
+    .slides{display:grid;grid-template-columns:repeat(auto-fill,minmax(315px,1fr));gap:16px}.slide{aspect-ratio:16/9;background:#f8fafc;color:#111827;border-radius:10px;padding:16px;position:relative;overflow:hidden;border:1px solid #cbd5e1}.slide:before{content:"";position:absolute;left:0;top:0;bottom:0;width:8px;background:#38bdf8}.slide h3{margin:0 0 8px;font-size:17px;color:#111827}.slide .small{font-size:10px;color:#64748b}.big{font-size:25px;font-weight:900;margin:6px 0}.two{display:grid;grid-template-columns:1fr 1fr;gap:9px}.box{background:#e2e8f0;border-radius:8px;padding:9px}.note{font-size:11px;line-height:1.32}.footer{position:absolute;bottom:8px;right:13px;color:#94a3b8;font-size:9px}.chartbox{height:122px;background:#fff;border-radius:8px;padding:5px}.miniTable{width:100%;border-collapse:collapse;font-size:10px}.miniTable th,.miniTable td{border:1px solid #cbd5e1;padding:3px 5px;text-align:right}.miniTable th:first-child,.miniTable td:first-child{text-align:left}.entry{border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0;background:#111827}.entry .remove{float:right}.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.hiddenCanvas{position:absolute;left:-99999px;top:-99999px;width:900px;height:380px;background:white}
+
+    .slide.title .cover-card{position:absolute;left:30px;right:22px;top:42px;bottom:34px;border:1.5px solid;padding:28px;background:rgba(0,0,0,.03)}.slide.title .cover-card h3{font-size:22px;margin-top:0;margin-bottom:8px}
+    .cover-sub{font-size:14px;margin:12px 0 18px}.cover-line{width:86px;height:3px;margin-top:20px;background:currentColor;opacity:.95}.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:18px}.stat{border:1px solid rgba(255,255,255,.25);padding:8px}.stat b{display:block;font-size:18px}.stat span{font-size:9px;opacity:.85}.preview-body{height:calc(100% - 30px);overflow:hidden}.agenda-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;height:100%;align-content:stretch}.agenda-grid>div{height:100%;display:grid;grid-template-rows:repeat(5,1fr);gap:7px}.agenda-item{background:#fff;border:1px solid #dbeafe;border-left:5px solid #38bdf8;border-radius:8px;padding:7px 9px;margin:0;font-size:10.8px;line-height:1.2;min-height:0;display:flex;align-items:center}.miniTable.pro{font-size:9px;height:auto}.miniTable.pro th{background:#38bdf8;color:white}.prochart{height:150px}.conclusion{background:#fff;border:1px solid #dbeafe;border-radius:7px;padding:7px;margin-top:6px}.turnover-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:30px}.turnover-grid div{background:#fff;border:1px solid #dbeafe;border-radius:8px;text-align:center;padding:13px 8px}.turnover-grid b{font-size:24px;display:block}.turnover-grid span{font-size:10px}.preview-bullets{font-size:12px;line-height:1.5}.two .box{min-height:135px;background:#fff;border:1px solid #dbeafe;overflow:hidden}
+
+
+    .timeline-preview-cards{height:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start;overflow:hidden}.timeline-card{background:#fff;border:1px solid #dbeafe;border-left:5px solid #38bdf8;border-radius:10px;padding:10px 12px;min-height:78px;max-height:105px;overflow:hidden}.timeline-card b{display:block;font-size:12px;margin-bottom:3px}.timeline-card .tl-title{font-size:11px;font-weight:700;line-height:1.25}.timeline-card .tl-detail{font-size:10px;line-height:1.28;color:#475569;margin-top:3px}.presenterStage .timeline-preview-cards{gap:18px;padding:0 10px}.presenterStage .timeline-card{min-height:16vh;max-height:22vh;padding:18px 22px;border-left-width:10px;border-radius:14px}.presenterStage .timeline-card b{font-size:1.35vw}.presenterStage .timeline-card .tl-title{font-size:1.15vw}.presenterStage .timeline-card .tl-detail{font-size:1.0vw;line-height:1.35}.presenterStage .slide.timeline-slide h3{font-size:3vw;margin-bottom:26px}.presenterStage .slide.timeline-slide .preview-body{height:calc(100% - 90px)}
+
+    .image-card{height:100%;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #dbeafe;border-radius:8px;overflow:hidden;padding:6px}.image-card img{max-width:100%;max-height:100%;object-fit:contain}.empty-card{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:#64748b;border:1px dashed #cbd5e1;border-radius:8px;background:#fff;padding:12px}.text-card{height:100%;background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:10px;overflow:hidden}.flow-text{font-size:12px;line-height:1.45;white-space:pre-wrap}
+
+    .file-row{display:grid;grid-template-columns:1fr 42px;gap:8px;align-items:center}.file-row input[type=file]{min-width:0}.clear-file{background:#7f1d1d;color:#fecaca;border:1px solid #991b1b;border-radius:10px;padding:9px 0;font-weight:900}.clear-file:disabled{opacity:.35;cursor:not-allowed}.table-fit{width:128%;transform:scale(.78);transform-origin:top left}.miniTable.pro{font-size:7.4px;line-height:1.05}.miniTable.pro th,.miniTable.pro td{padding:1.6px 3px}.slide .preview-body{padding-bottom:12px}.preview-actions{display:flex;gap:8px;align-items:center}
+    .presenterOverlay{position:fixed;inset:0;background:#020617;z-index:9999;display:none;align-items:center;justify-content:center;padding:0}
+    .presenterOverlay.active{display:flex}
+    .presenterStage{width:min(100vw,177.78vh);height:min(56.25vw,100vh);aspect-ratio:16/9;position:relative;display:flex;align-items:stretch;justify-content:center}
+    .presenterStage .slide{width:100%!important;height:100%!important;border-radius:0!important;padding:clamp(34px,3.4vw,64px)!important;font-size:clamp(18px,1.3vw,30px)!important;box-shadow:none!important;border-width:0!important}
+    .presenterStage .slide:before{width:clamp(10px,1vw,22px)!important}
+    .presenterStage .slide h3{font-size:clamp(30px,3vw,56px)!important;margin-bottom:clamp(18px,1.5vw,34px)!important}
+    .presenterStage .slide.agenda-slide h3{font-size:clamp(42px,4vw,78px)!important;margin-bottom:clamp(26px,2.2vw,48px)!important}
+    .presenterStage .slide.agenda-slide .preview-body{height:calc(100% - clamp(105px,8vw,160px))!important;padding-bottom:clamp(16px,1.2vw,30px)!important}
+    .presenterStage .slide.title .cover-card{left:clamp(60px,6vw,120px)!important;right:clamp(60px,6vw,120px)!important;top:clamp(70px,7vw,135px)!important;bottom:clamp(70px,7vw,125px)!important;padding:clamp(42px,4vw,82px)!important}
+    .presenterStage .slide.title .cover-card h3{font-size:clamp(38px,4vw,76px)!important}
+    .presenterStage .cover-sub{font-size:clamp(20px,1.7vw,34px)!important}
+    .presenterStage .cover-line{width:clamp(120px,12vw,250px)!important;height:clamp(4px,.35vw,8px)!important}
+    .presenterStage .preview-body{height:calc(100% - clamp(70px,6vw,115px))!important;overflow:hidden!important}
+    .presenterStage .agenda-grid{gap:clamp(22px,2vw,42px)!important;height:100%!important;align-content:stretch!important}
+    .presenterStage .agenda-grid>div{height:100%!important;display:grid!important;grid-template-rows:repeat(5,1fr)!important;gap:clamp(16px,1.45vw,32px)!important}
+    .presenterStage .agenda-item{font-size:clamp(22px,1.55vw,36px)!important;line-height:1.22!important;padding:clamp(18px,1.45vw,34px) clamp(22px,1.8vw,42px)!important;border-left-width:clamp(8px,.7vw,16px)!important;border-radius:clamp(12px,1vw,24px)!important;display:flex!important;align-items:center!important}
+    .presenterStage .miniTable.pro{font-size:clamp(11px,.92vw,19px)!important;line-height:1.12!important}
+    .presenterStage .miniTable.pro th,.presenterStage .miniTable.pro td{padding:clamp(4px,.35vw,8px) clamp(6px,.45vw,12px)!important}
+    .presenterStage .table-fit{width:100%!important;transform:none!important}
+    .presenterStage .chartbox{height:54%!important;padding:clamp(8px,.8vw,16px)!important}
+    .presenterStage .prochart{height:58%!important}
+    .presenterStage .conclusion{font-size:clamp(15px,1.1vw,24px)!important;padding:clamp(12px,1vw,22px)!important;margin-top:clamp(12px,1vw,22px)!important}
+    .presenterStage .turnover-grid{gap:clamp(16px,1.5vw,30px)!important;margin-top:clamp(45px,5vw,95px)!important}
+    .presenterStage .turnover-grid div{padding:clamp(26px,2.5vw,50px) clamp(12px,1vw,24px)!important;border-radius:clamp(12px,1vw,24px)!important}
+    .presenterStage .turnover-grid b{font-size:clamp(46px,4.5vw,86px)!important}
+    .presenterStage .turnover-grid span{font-size:clamp(17px,1.2vw,28px)!important}
+    .presenterStage .box{font-size:clamp(16px,1.1vw,24px)!important}
+    .presenterStage .flow-text,.presenterStage .preview-bullets{font-size:clamp(18px,1.4vw,30px)!important;line-height:1.45!important}
+    .presenterStage .image-card{height:100%!important;width:100%!important;padding:0!important;border:0!important;background:transparent!important}
+    .presenterStage .image-card img{width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}
+    .presenterStage .slide.content .preview-body:has(.image-card){height:calc(100% - clamp(82px,7vw,130px))!important}
+    .presenterStage .footer{font-size:clamp(10px,.75vw,16px)!important;bottom:clamp(12px,1vw,24px)!important;right:clamp(18px,1.5vw,32px)!important}
+    .presenterControls{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:10px;background:rgba(15,23,42,.78);border:1px solid #334155;border-radius:999px;padding:8px 12px;opacity:.18;transition:.2s}.presenterControls:hover{opacity:1}.presenterControls button{padding:8px 12px;border-radius:999px}.presenterCounter{color:#e5e7eb;font-weight:800;padding:8px 10px}.presenterClose{position:fixed;right:18px;top:14px;background:#7f1d1d;color:#fecaca;border-radius:999px;padding:9px 14px;opacity:.18}.presenterClose:hover{opacity:1}
+    @media(max-width:980px){main{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Annual Meeting PowerPoint Generator <span class="pill">Online v1.8</span></h1>
+  <div class="sub">Upload Excel Job In/Complete → tabel, bar chart, kesimpulan → timeline fleksibel range bulan/tahun → generate PPTX. Library dimuat online dengan stable CDN + built-in template dropdown.</div>
+</header>
+<main>
+  <section class="panel">
+    <h2>Input Meeting</h2>
+    <p class="hint">Mode online: hanya library PptxGenJS, Chart.js, dan SheetJS yang di-load dari internet. v1.8 memakai sumber stable saja agar output PPTX lebih kompatibel dengan Microsoft PowerPoint.</p>
+    <div class="status" id="libraryStatus">Loading online libraries...</div>
+    <label>Template Design</label>
+    <select id="templateSelect" onchange="renderPreview()"></select>
+    <div class="templatePreviewBox" id="templatePreviewBox"></div>
+    <div class="status" id="templateInfo">Pilih template built-in. Tidak perlu upload PPTX manual.</div>
+
+    <div class="row">
+      <div><label>District</label><input id="district" value="CA North"></div>
+      <div><label>Tahun Meeting</label><input id="year" value="2026"></div>
+    </div>
+    <label>Presenter</label><input id="presenter" value="David Sanjaya">
+
+    <h3>1. District Structural & Flow Process</h3>
+    <p class="hint">Bagian ini akan dibuat menjadi halaman setelah Agenda. Untuk structural dan flow bisa pakai gambar atau tulisan. Jika gambar di-upload, gambar akan diprioritaskan.</p>
+    <label>District Structural Image <span class="hint">(opsional)</span></label>
+    <div class="file-row"><input type="file" id="structureImage" accept="image/*" /><button type="button" class="clear-file" id="clearStructureImageBtn" onclick="clearFileInput('structureImage','structure')" title="Hapus attachment">×</button></div>
+    <label>District Structural Text <span class="hint">(dipakai jika tidak upload gambar)</span></label>
+    <textarea id="structureText" placeholder="Contoh:
+David - Head
+Abyan - SPV
+Naufal - SPV
+Donny - QC
+Anita - QC
+Ricky - Job Prep
+Wulan - CS
+Iwan - CS">David - Head
+Abyan - SPV
+Naufal - SPV
+Donny - QC
+Anita - QC
+Ricky - Job Prep
+Wulan - CS
+Iwan - CS</textarea>
+
+    <label>Flow Process</label>
+    <p class="hint">Setiap flow process punya nama proses sendiri. Bisa tambah lebih dari 1 proses; masing-masing akan dibuat menjadi slide sendiri setelah District Structural.</p>
+    <div id="flowProcessList"></div>
+    <button class="ghost mini" type="button" onclick="addFlowProcess()">+ Tambah Flow Process</button>
+
+    <h3>2. Data Job In dari Excel</h3>
+    <div class="file-row"><input type="file" id="jobInExcel" accept=".xlsx,.xls,.csv" /><button type="button" class="clear-file" id="clearJobInBtn" onclick="clearFileInput('jobInExcel','jobIn')" title="Hapus attachment">×</button></div>
+    <div class="status" id="jobInStatus">Belum ada file Job In.</div>
+
+    <h3>3. Data Job Complete dari Excel</h3>
+    <div class="file-row"><input type="file" id="jobCompleteExcel" accept=".xlsx,.xls,.csv" /><button type="button" class="clear-file" id="clearJobCompleteBtn" onclick="clearFileInput('jobCompleteExcel','jobComplete')" title="Hapus attachment">×</button></div>
+    <div class="status" id="jobCompleteStatus">Belum ada file Job Complete.</div>
+
+    <div class="row">
+      <button class="ghost mini" onclick="loadSampleData()">Load Sample Data</button>
+      <button class="ghost mini" onclick="clearExcelData()">Clear Excel Data</button>
+    </div>
+
+    <h3>Turn Over</h3>
+    <div class="row"><div><label>Resign</label><input id="resign" type="number" value="2"></div><div><label>Pindah</label><input id="pindah" type="number" value="3"></div></div>
+    <div class="row"><div><label>Masuk</label><input id="masuk" type="number" value="1"></div><div><label>Naik Jabatan</label><input id="promosi" type="number" value="1"></div></div>
+
+    <h3>Timeline</h3>
+    <p class="hint">Timeline fleksibel: setiap item bisa punya bulan/tahun mulai dan bulan/tahun akhir. Cocok untuk range seperti Januari 2025 - Mei 2026.</p>
+    <div id="timelineList"></div>
+    <button class="ghost mini" onclick="addTimeline()">+ Tambah Timeline</button>
+
+    <h3>Problem & Solution</h3>
+    <div id="problemList"></div>
+    <button class="ghost mini" onclick="addProblem()">+ Tambah Problem & Solution</button>
+
+    <h3>Resolution</h3>
+    <div id="resolutionList"></div>
+    <button class="ghost mini" onclick="addResolution()">+ Tambah Resolution</button>
+
+    <label>Masukan untuk Perusahaan</label>
+    <textarea id="support">Improvement tools otomatis untuk reporting.
+Support training antar role.
+Support dashboard untuk monitoring job in dan job complete.</textarea>
+
+    <div class="actions">
+      <button class="primary" id="previewBtn" onclick="renderPreview()">Refresh Preview</button>
+      <button class="ghost" id="generateBtn" onclick="generatePPT()">Generate PPTX</button>
+      <button class="ghost" type="button" onclick="startPresentation(0)">Fullscreen Preview</button>
+    </div>
+  </section>
+
+  <section class="preview">
+    <div class="topbar"><h2>Preview Slide</h2><div class="preview-actions"><button class="ghost mini" type="button" onclick="startPresentation(0)">Fullscreen</button><span class="hint" id="templateName">Built-in template</span></div></div>
+    <div class="slides" id="slides"></div>
+  </section>
+</main>
+<div id="presenterOverlay" class="presenterOverlay"><button class="presenterClose" type="button" onclick="closePresentation()">Close Esc</button><div id="presenterStage" class="presenterStage"></div><div class="presenterControls"><button type="button" onclick="prevPresentationSlide()">‹ Prev</button><span id="presenterCounter" class="presenterCounter">1 / 1</span><button type="button" onclick="nextPresentationSlide()">Next ›</button></div></div>
+<canvas id="hiddenChart" class="hiddenCanvas" width="1600" height="650"></canvas>
+
+<script>
+
+const $ = id => document.getElementById(id);
+const LIBRARIES = {
+  pptx: [
+    './libs/pptxgen.bundle.min.js','./libs/pptxgen.bundle.js',
+    'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.min.js',
+    'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
+    'https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.min.js'
+  ],
+  chart: [
+    './libs/chart.umd.min.js','./libs/chart.umd.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.9/dist/chart.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.9/chart.umd.min.js'
+  ],
+  xlsx: [
+    './libs/xlsx.full.min.js','./libs/xlsx.full.js',
+    'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  ]
+};
+let librariesReady = false;
+function setBusyState(isBusy){
+  ['previewBtn','generateBtn','jobInExcel','jobCompleteExcel'].forEach(id=>{ const el=$(id); if(el) el.disabled = isBusy; });
+}
+function loadScriptWithTimeout(url, timeoutMs=12000){
+  return new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>{ script.remove(); reject(new Error('Timeout: '+url)); }, timeoutMs);
+    script.src=url; script.async=false;
+    script.referrerPolicy='no-referrer';
+    script.onload=()=>{ clearTimeout(timer); resolve(url); };
+    script.onerror=()=>{ clearTimeout(timer); script.remove(); reject(new Error('Failed: '+url)); };
+    document.head.appendChild(script);
+  });
+}
+async function loadOneLibrary(name, testFn){
+  const urls = LIBRARIES[name];
+  let lastErr;
+  for(const url of urls){
+    try{
+      const st=$('libraryStatus'); if(st) st.textContent='Loading '+name+'...\nTrying: '+url;
+      await loadScriptWithTimeout(url);
+      if(testFn()) return url;
+      lastErr = new Error('Loaded but global object not found: '+name);
+    }catch(e){ lastErr=e; }
+  }
+  throw lastErr || new Error('Library failed: '+name);
+}
+
+function getPptxCtor(){
+  return window.pptxgen || window.pptxgenjs || window.PptxGenJS || window.pptxgenjs?.default || window.PptxGenJS?.default;
+}
+function hasPptx(){
+  const C = getPptxCtor();
+  return typeof C === 'function';
+}
+function hostOf(url){
+  try { return new URL(url, location.href).host || url; } catch(e){ return url; }
+}
+
+async function initLibraries(){
+  setBusyState(true);
+  const status=$('libraryStatus');
+  try{
+    status.textContent='Loading PptxGenJS...';
+    const pptxUrl = await loadOneLibrary('pptx',()=>hasPptx());
+    status.textContent='Loading Chart.js...';
+    const chartUrl = await loadOneLibrary('chart',()=>typeof Chart !== 'undefined');
+    status.textContent='Loading SheetJS/XLSX...';
+    const xlsxUrl = await loadOneLibrary('xlsx',()=>typeof XLSX !== 'undefined');
+    librariesReady=true;
+    status.textContent='Library ready.\nPPTX: '+pptxUrl.split('/')[2]+'\nChart: '+chartUrl.split('/')[2]+'\nXLSX: '+xlsxUrl.split('/')[2];
+    setBusyState(false);
+    renderPreview();
+  }catch(err){
+    librariesReady=false;
+    status.textContent='Library gagal ter-load. Alternatif: buka lewat Chrome terbaru, matikan ad blocker/DNS filtering sementara, atau buat folder libs local di samping file HTML. Isi libs dengan: pptxgen.bundle.min.js, chart.umd.min.js, xlsx.full.min.js.\nDetail terakhir: '+err.message;
+    setBusyState(false);
+  }
+}
+
+const PPT_TEMPLATES = [
+  {id:'midnight_blue',name:'01. Midnight Blue Corporate',bg:'0F172A',accent:'38BDF8',accent2:'22C55E',title:'FFFFFF',text:'111827',slideBg:'F8FAFC',soft:'E0F2FE'},
+  {id:'emerald',name:'02. Emerald Business',bg:'052E2B',accent:'10B981',accent2:'34D399',title:'FFFFFF',text:'064E3B',slideBg:'ECFDF5',soft:'D1FAE5'},
+  {id:'royal_purple',name:'03. Royal Purple',bg:'2E1065',accent:'A78BFA',accent2:'F472B6',title:'FFFFFF',text:'312E81',slideBg:'F5F3FF',soft:'EDE9FE'},
+  {id:'crimson',name:'04. Crimson Executive',bg:'450A0A',accent:'EF4444',accent2:'F97316',title:'FFFFFF',text:'1F2937',slideBg:'FFF7ED',soft:'FEE2E2'},
+  {id:'slate_gold',name:'05. Slate Gold',bg:'111827',accent:'F59E0B',accent2:'FBBF24',title:'FFFFFF',text:'111827',slideBg:'FFFBEB',soft:'FEF3C7'},
+  {id:'ocean',name:'06. Ocean Clean',bg:'0C4A6E',accent:'06B6D4',accent2:'38BDF8',title:'FFFFFF',text:'0F172A',slideBg:'F0FDFA',soft:'CCFBF1'},
+  {id:'mono',name:'07. Monochrome Minimal',bg:'111827',accent:'6B7280',accent2:'9CA3AF',title:'FFFFFF',text:'111827',slideBg:'F9FAFB',soft:'E5E7EB'},
+  {id:'indigo',name:'08. Indigo Modern',bg:'1E1B4B',accent:'6366F1',accent2:'22D3EE',title:'FFFFFF',text:'1E1B4B',slideBg:'EEF2FF',soft:'E0E7FF'},
+  {id:'lime_dark',name:'09. Lime Dark',bg:'1A2E05',accent:'84CC16',accent2:'A3E635',title:'FFFFFF',text:'1A2E05',slideBg:'F7FEE7',soft:'ECFCCB'},
+  {id:'rose',name:'10. Rose Soft',bg:'4C0519',accent:'F43F5E',accent2:'FB7185',title:'FFFFFF',text:'4C0519',slideBg:'FFF1F2',soft:'FFE4E6'},
+  {id:'cyan_black',name:'11. Cyan Black Tech',bg:'020617',accent:'22D3EE',accent2:'14B8A6',title:'FFFFFF',text:'0F172A',slideBg:'F8FAFC',soft:'CFFAFE'},
+  {id:'forest',name:'12. Forest Green',bg:'052E16',accent:'22C55E',accent2:'86EFAC',title:'FFFFFF',text:'052E16',slideBg:'F0FDF4',soft:'DCFCE7'},
+  {id:'navy_orange',name:'13. Navy Orange',bg:'172554',accent:'F97316',accent2:'FDBA74',title:'FFFFFF',text:'172554',slideBg:'FFF7ED',soft:'FED7AA'},
+  {id:'sky',name:'14. Sky Professional',bg:'075985',accent:'0EA5E9',accent2:'7DD3FC',title:'FFFFFF',text:'0C4A6E',slideBg:'F0F9FF',soft:'E0F2FE'},
+  {id:'violet_gold',name:'15. Violet Gold',bg:'3B0764',accent:'F59E0B',accent2:'C084FC',title:'FFFFFF',text:'3B0764',slideBg:'FAF5FF',soft:'F3E8FF'},
+  {id:'teal',name:'16. Teal Professional',bg:'134E4A',accent:'14B8A6',accent2:'5EEAD4',title:'FFFFFF',text:'134E4A',slideBg:'F0FDFA',soft:'CCFBF1'},
+  {id:'brown',name:'17. Warm Brown',bg:'431407',accent:'D97706',accent2:'FCD34D',title:'FFFFFF',text:'431407',slideBg:'FFFBEB',soft:'FEF3C7'},
+  {id:'blue_gray',name:'18. Blue Gray',bg:'1E293B',accent:'60A5FA',accent2:'93C5FD',title:'FFFFFF',text:'1E293B',slideBg:'F8FAFC',soft:'DBEAFE'},
+  {id:'magenta',name:'19. Magenta Creative',bg:'500724',accent:'DB2777',accent2:'F9A8D4',title:'FFFFFF',text:'500724',slideBg:'FDF2F8',soft:'FCE7F3'},
+  {id:'classic_white',name:'20. Classic White',bg:'FFFFFF',accent:'2563EB',accent2:'16A34A',title:'111827',text:'111827',slideBg:'FFFFFF',soft:'DBEAFE'}
+];
+function currentTheme(){ return PPT_TEMPLATES.find(t=>t.id===$('templateSelect')?.value) || PPT_TEMPLATES[0]; }
+function initTemplateSelect(){ const sel=$('templateSelect'); if(!sel) return; sel.innerHTML=PPT_TEMPLATES.map(t=>`<option value="${t.id}">${t.name}</option>`).join(''); sel.value='midnight_blue'; }
+
+const MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+let jobInData = [];
+let completeData = [];
+let structureImageData = null;
+let flowProcesses = [];
+let charts = {};
+let previewSlidesHtml = [];
+let presentationIndex = 0;
+
+function pct(now, prev){ if(!prev) return 0; return ((now-prev)/prev*100); }
+function lines(text){ return (text||'').split(/\n+/).map(x=>x.trim()).filter(Boolean); }
+function money(n){ return (+n||0).toLocaleString('id-ID'); }
+function esc(s){return String(s??'').replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+function val(){ return {district:$('district').value, year:+$('year').value||2026, presenter:$('presenter').value,
+  resign:+$('resign').value||0, pindah:+$('pindah').value||0, masuk:+$('masuk').value||0, promosi:+$('promosi').value||0,
+  support:$('support').value, structureText: $('structureText')?.value || ''};}
+
+
+function autoCropImageDataUrl(dataUrl){
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{
+      try{
+        const c=document.createElement('canvas');
+        const ctx=c.getContext('2d',{willReadFrequently:true});
+        c.width=img.naturalWidth || img.width; c.height=img.naturalHeight || img.height;
+        ctx.drawImage(img,0,0,c.width,c.height);
+        const {data,width,height}=ctx.getImageData(0,0,c.width,c.height);
+        let minX=width, minY=height, maxX=-1, maxY=-1;
+        // Anggap pixel putih/polos sebagai margin. Ini membantu flowchart/screenshot yang banyak ruang kosong.
+        const step = width*height > 3500000 ? 2 : 1;
+        for(let y=0;y<height;y+=step){
+          for(let x=0;x<width;x+=step){
+            const i=(y*width+x)*4, r=data[i], g=data[i+1], b=data[i+2], a=data[i+3];
+            const isTransparent = a < 18;
+            const isWhite = r>242 && g>242 && b>242;
+            const isNearThemeBg = r>238 && g>248 && b>225; // light green/cream template backgrounds
+            if(!isTransparent && !isWhite && !isNearThemeBg){
+              if(x<minX) minX=x; if(y<minY) minY=y; if(x>maxX) maxX=x; if(y>maxY) maxY=y;
+            }
+          }
+        }
+        if(maxX < minX || maxY < minY){ resolve(dataUrl); return; }
+        const pad = Math.max(18, Math.round(Math.max(width,height)*0.018));
+        minX=Math.max(0,minX-pad); minY=Math.max(0,minY-pad); maxX=Math.min(width-1,maxX+pad); maxY=Math.min(height-1,maxY+pad);
+        const cw=maxX-minX+1, ch=maxY-minY+1;
+        // Jika crop hampir sama dengan original, pakai original saja.
+        if(cw*ch > width*height*0.92){ resolve(dataUrl); return; }
+        const out=document.createElement('canvas'); out.width=cw; out.height=ch;
+        out.getContext('2d').drawImage(c,minX,minY,cw,ch,0,0,cw,ch);
+        resolve(out.toDataURL('image/png'));
+      }catch(e){ resolve(dataUrl); }
+    };
+    img.onerror=()=>resolve(dataUrl);
+    img.src=dataUrl;
+  });
+}
+function readImageFile(file){
+  return new Promise((resolve,reject)=>{
+    if(!file){ resolve(null); return; }
+    const reader = new FileReader();
+    reader.onload = async () => resolve(await autoCropImageDataUrl(reader.result));
+    reader.onerror = () => reject(new Error('Gagal membaca gambar: '+file.name));
+    reader.readAsDataURL(file);
+  });
+}
+async function handleImageInput(inputId, target){
+  const file = $(inputId)?.files?.[0];
+  try{
+    const data = await readImageFile(file);
+    if(target==='structure') structureImageData = data;
+    renderPreview();
+  }catch(err){ alert(err.message); }
+}
+
+function addFlowProcess(name='Standard Flow Process', imgData=null, text='Job In → Job Prep → QC → SPV Review → Submit / Complete'){
+  const id = 'flow_'+Date.now()+'_'+Math.floor(Math.random()*10000);
+  flowProcesses.push({id,name,imgData,text});
+  renderFlowProcessInputs();
+  renderPreview();
+}
+function removeFlowProcess(id){
+  flowProcesses = flowProcesses.filter(f=>f.id!==id);
+  renderFlowProcessInputs();
+  renderPreview();
+}
+function updateFlowProcess(id, field, value){
+  const f = flowProcesses.find(x=>x.id===id); if(!f) return;
+  f[field]=value;
+  renderPreview();
+}
+async function handleFlowImageInput(id, input){
+  const f = flowProcesses.find(x=>x.id===id); if(!f) return;
+  try{ f.imgData = await readImageFile(input.files?.[0] || null); renderPreview(); }
+  catch(err){ alert(err.message); }
+}
+
+function clearFlowImage(id){
+  const f = flowProcesses.find(x=>x.id===id); if(!f) return;
+  f.imgData = null;
+  renderFlowProcessInputs();
+  renderPreview();
+}
+function clearFileInput(inputId, kind){
+  const input=$(inputId); if(input) input.value='';
+  if(kind==='structure') structureImageData=null;
+  if(kind==='jobIn') { jobInData=[]; $('jobInStatus').textContent='Belum ada file Job In.'; }
+  if(kind==='jobComplete') { completeData=[]; $('jobCompleteStatus').textContent='Belum ada file Job Complete.'; }
+  renderPreview();
+}
+function updateClearButtons(){
+  const sBtn=$('clearStructureImageBtn'); if(sBtn) sBtn.disabled=!structureImageData && !($('structureImage')?.files?.length);
+  const jiBtn=$('clearJobInBtn'); if(jiBtn) jiBtn.disabled=!jobInData.length && !($('jobInExcel')?.files?.length);
+  const jcBtn=$('clearJobCompleteBtn'); if(jcBtn) jcBtn.disabled=!completeData.length && !($('jobCompleteExcel')?.files?.length);
+}
+function getFlowProcesses(){
+  return flowProcesses.filter(f => (f.name||'').trim() || (f.text||'').trim() || f.imgData);
+}
+function renderFlowProcessInputs(){
+  const wrap=$('flowProcessList'); if(!wrap) return;
+  wrap.innerHTML = flowProcesses.map((f,i)=>`<div class="entry flowEntry">
+    <button class="danger mini remove" type="button" onclick="removeFlowProcess('${f.id}')">Remove</button>
+    <label>Flow Process ${i+1} - Proses Apa?</label>
+    <input value="${esc(f.name||'')}" placeholder="Contoh: Standard Job Flow / Revision Flow / Denial Flow" oninput="updateFlowProcess('${f.id}','name',this.value)">
+    <label>Flow Process Image <span class="hint">(opsional)</span></label>
+    <div class="file-row"><input type="file" accept="image/*" onchange="handleFlowImageInput('${f.id}',this)"><button type="button" class="clear-file" onclick="clearFlowImage('${f.id}')" title="Hapus attachment gambar flow">×</button></div>
+    <label>Flow Process Text <span class="hint">(dipakai jika tidak upload gambar)</span></label>
+    <textarea placeholder="Contoh flow process" oninput="updateFlowProcess('${f.id}','text',this.value)">${esc(f.text||'')}</textarea>
+    ${f.imgData ? '<div class="hint">Gambar sudah ter-load dan otomatis di-crop margin putihnya agar lebih besar. Upload gambar baru untuk mengganti.</div>' : ''}
+  </div>`).join('');
+}
+
+function mediaPreview(imgData, text, empty){
+  if(imgData) return `<div class="image-card image-cropped"><img src="${imgData}" alt="preview image"></div>`;
+  const clean = (text||'').trim();
+  if(clean) return `<div class="text-card"><div class="flow-text">${esc(clean)}</div></div>`;
+  return `<div class="empty-card">${esc(empty)}</div>`;
+}
+
+function addTimeline(title='', startMonth='Januari', startYear='2025', endMonth='Mei', endYear='2026', detail=''){
+  const idx = document.querySelectorAll('#timelineList .entry').length + 1;
+  const div = document.createElement('div'); div.className='entry timelineEntry';
+  const monthOpts = MONTHS.map(m=>`<option value="${m}">${m}</option>`).join('');
+  div.innerHTML = `<button class="danger mini remove" onclick="this.parentElement.remove();renderPreview()">Remove</button>
+    <label>Timeline ${idx}</label><input class="timelineTitle" placeholder="Contoh: Update Frontier / Denial PGNE / CS Support" value="${esc(title)}">
+    <div class="row">
+      <div><label>Mulai</label><div class="row"><select class="timelineStartMonth">${monthOpts}</select><input class="timelineStartYear" type="number" value="${esc(startYear)}"></div></div>
+      <div><label>Selesai</label><div class="row"><select class="timelineEndMonth">${monthOpts}</select><input class="timelineEndYear" type="number" value="${esc(endYear)}"></div></div>
+    </div>
+    <label>Notes / Detail</label><textarea class="timelineDetail" placeholder="Tulis detail singkat timeline">${esc(detail)}</textarea>`;
+  $('timelineList').appendChild(div);
+  div.querySelector('.timelineStartMonth').value = startMonth;
+  div.querySelector('.timelineEndMonth').value = endMonth;
+}
+function getTimelines(){ return [...document.querySelectorAll('#timelineList .timelineEntry')].map(e=>({
+  title:e.querySelector('.timelineTitle').value.trim(),
+  startMonth:e.querySelector('.timelineStartMonth').value,
+  startYear:e.querySelector('.timelineStartYear').value,
+  endMonth:e.querySelector('.timelineEndMonth').value,
+  endYear:e.querySelector('.timelineEndYear').value,
+  detail:e.querySelector('.timelineDetail').value.trim()
+})).filter(x=>x.title||x.detail); }
+function timelineLines(){
+  const items=getTimelines();
+  if(!items.length) return ['Belum ada timeline.'];
+  return items.map(t=>`${t.startMonth} ${t.startYear} - ${t.endMonth} ${t.endYear}: ${t.title}${t.detail ? ' — '+t.detail : ''}`);
+}
+function timelinePreview(){
+  const items=getTimelines();
+  if(!items.length) return '<p class="note">Belum ada timeline.</p>';
+  const maxItems = 6;
+  const shown = items.slice(0,maxItems);
+  const cards = shown.map(t=>`<div class="timeline-card"><b>${esc(t.startMonth)} ${esc(t.startYear)} - ${esc(t.endMonth)} ${esc(t.endYear)}</b><div class="tl-title">${esc(t.title)}</div>${t.detail?`<div class="tl-detail">${esc(t.detail)}</div>`:''}</div>`).join('');
+  const more = items.length > maxItems ? `<div class="timeline-card"><b>+ ${items.length-maxItems} timeline lain</b><div class="tl-detail">Timeline tambahan tetap akan dimasukkan ke PPT.</div></div>` : '';
+  return `<div class="timeline-preview-cards">${cards}${more}</div>`;
+}
+
+function addProblem(problem='', solution=''){
+  const idx = document.querySelectorAll('#problemList .entry').length + 1;
+  const div = document.createElement('div'); div.className='entry';
+  div.innerHTML = `<button class="danger mini remove" onclick="this.parentElement.remove();renderPreview()">Remove</button>
+    <label>Problem ${idx}</label><textarea class="problemText" placeholder="Tulis problem">${esc(problem)}</textarea>
+    <label>Solution ${idx}</label><textarea class="solutionText" placeholder="Tulis solution">${esc(solution)}</textarea>`;
+  $('problemList').appendChild(div);
+}
+function addResolution(text=''){
+  const div = document.createElement('div'); div.className='entry';
+  div.innerHTML = `<button class="danger mini remove" onclick="this.parentElement.remove();renderPreview()">Remove</button>
+    <label>Resolution</label><textarea class="resolutionText" placeholder="Tulis resolution">${esc(text)}</textarea>`;
+  $('resolutionList').appendChild(div);
+}
+function getProblems(){ return [...document.querySelectorAll('#problemList .entry')].map(e=>({problem:e.querySelector('.problemText').value, solution:e.querySelector('.solutionText').value})).filter(x=>x.problem||x.solution); }
+function getResolutions(){ return [...document.querySelectorAll('.resolutionText')].map(e=>e.value).filter(Boolean); }
+
+function findKey(obj, patterns){
+  const keys = Object.keys(obj||{});
+  return keys.find(k => patterns.some(p => new RegExp(p,'i').test(String(k).trim())));
+}
+function parseDateMonth(v){
+  if(v == null || v === '') return null;
+  if(typeof v === 'number'){
+    const d = XLSX.SSF.parse_date_code(v); if(d) return {year:d.y, month:d.m};
+  }
+  const s = String(v).trim();
+  const mName = MONTHS.findIndex(m => new RegExp(m,'i').test(s));
+  const yr = (s.match(/20\d{2}/)||[])[0];
+  if(mName>=0) return {year: yr?+yr:(+$('year').value||new Date().getFullYear()), month:mName+1};
+  const d = new Date(s); if(!isNaN(d)) return {year:d.getFullYear(), month:d.getMonth()+1};
+  const ym = s.match(/(20\d{2})[-\/](\d{1,2})/); if(ym) return {year:+ym[1], month:+ym[2]};
+  return null;
+}
+function parseExcelRows(rows, type){
+  if(!rows.length) return [];
+  const sample = rows.find(r=>Object.keys(r).length) || {};
+  const dateKey = findKey(sample, ['periode','month','bulan','tanggal','date','received','complete','completed','job in','created']);
+  const districtKey = findKey(sample, ['district','distrik','area','team','owner']);
+  const poleKey = findKey(sample, ['poles','pole','total pole','jumlah pole','qty','quantity','total']);
+  const out = [];
+  rows.forEach((r,i)=>{
+    const dm = parseDateMonth(dateKey ? r[dateKey] : (r['Periode']||r['Bulan']||r['Month']));
+    if(!dm || dm.month<1 || dm.month>12) return;
+    let poles = poleKey ? Number(String(r[poleKey]).replace(/[^0-9.-]/g,'')) : NaN;
+    if(!isFinite(poles)) poles = 1;
+    let district = districtKey ? String(r[districtKey]||'All District') : 'All District';
+    district = district.trim() || 'All District';
+    out.push({year:dm.year, month:dm.month, district, poles, type});
+  });
+  return out;
+}
+async function handleExcel(file, type){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf,{type:'array',cellDates:false});
+  let allRows=[];
+  wb.SheetNames.forEach(sn=>{
+    const ws=wb.Sheets[sn];
+    const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+    allRows=allRows.concat(rows);
+  });
+  const parsed = parseExcelRows(allRows, type);
+  return {parsed, sheetCount: wb.SheetNames.length, rawRows: allRows.length};
+}
+$('jobInExcel').addEventListener('change', async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  try{ const r=await handleExcel(file,'Job In'); jobInData=r.parsed; $('jobInStatus').textContent=`Loaded: ${file.name}\nSheet: ${r.sheetCount}, Raw rows: ${r.rawRows}, Parsed rows: ${r.parsed.length}`; renderPreview(); }
+  catch(err){ $('jobInStatus').textContent='Error membaca Excel Job In: '+err.message; }
+});
+$('jobCompleteExcel').addEventListener('change', async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  try{ const r=await handleExcel(file,'Job Complete'); completeData=r.parsed; $('jobCompleteStatus').textContent=`Loaded: ${file.name}\nSheet: ${r.sheetCount}, Raw rows: ${r.rawRows}, Parsed rows: ${r.parsed.length}`; renderPreview(); }
+  catch(err){ $('jobCompleteStatus').textContent='Error membaca Excel Job Complete: '+err.message; }
+});
+$('structureImage')?.addEventListener('change',()=>handleImageInput('structureImage','structure'));
+['structureText','district','year','presenter','resign','pindah','masuk','promosi','support'].forEach(id=>$(id)?.addEventListener('input',renderPreview));
+
+function loadSampleData(){
+  jobInData=[]; completeData=[]; const yr=+($('year').value||2026); const districts=['Comcast','South','NESC'];
+  for(let m=1;m<=12;m++){districts.forEach((d,di)=>{ jobInData.push({year:yr,month:m,district:d,poles:Math.round(350+m*55+di*120+Math.random()*180),type:'Job In'}); completeData.push({year:yr,month:m,district:d,poles:Math.round(290+m*45+di*90+Math.random()*150),type:'Job Complete'}); });}
+  $('jobInStatus').textContent='Sample Job In loaded.'; $('jobCompleteStatus').textContent='Sample Job Complete loaded.'; renderPreview();
+}
+function clearExcelData(){jobInData=[];completeData=[];$('jobInStatus').textContent='Belum ada file Job In.';$('jobCompleteStatus').textContent='Belum ada file Job Complete.';renderPreview();}
+function aggregate(data, year=val().year){
+  const map={}; const districtSet=new Set();
+  data.filter(r=>r.year===year).forEach(r=>{const key=r.month+'|'+r.district; map[key]=(map[key]||0)+(+r.poles||0); districtSet.add(r.district);});
+  const districts=[...districtSet].sort();
+  const rows=MONTHS.map((m,i)=>{ const obj={month:m,total:0}; districts.forEach(d=>{obj[d]=map[(i+1)+'|'+d]||0; obj.total+=obj[d];}); return obj;});
+  return {rows,districts,total:rows.reduce((a,b)=>a+b.total,0)};
+}
+function conclusion(label, ag){
+  if(!ag.rows.length || ag.total===0) return `Belum ada data ${label}.`;
+  const peak = ag.rows.reduce((a,b)=>b.total>a.total?b:a,ag.rows[0]);
+  let bestDistrict='-'; let bestVal=0; ag.districts.forEach(d=>ag.rows.forEach(r=>{if(r[d]>bestVal){bestVal=r[d];bestDistrict=d;}}));
+  let biggestRise={from:'-',to:'-',pct:0,diff:0};
+  for(let i=1;i<ag.rows.length;i++){const prev=ag.rows[i-1].total, now=ag.rows[i].total; const diff=now-prev; const pc=prev?diff/prev*100:0; if(diff>biggestRise.diff) biggestRise={from:ag.rows[i-1].month,to:ag.rows[i].month,pct:pc,diff};}
+  return `${label} terbanyak terjadi pada bulan ${peak.month} dengan total ${money(peak.total)} poles. District tertinggi adalah ${bestDistrict} dengan ${money(bestVal)} poles. Kenaikan terbesar terjadi dari ${biggestRise.from} ke ${biggestRise.to} sebesar ${money(biggestRise.diff)} poles (${Math.abs(biggestRise.pct).toFixed(2)}%). Total ${label} tahun ${val().year}: ${money(ag.total)} poles.`;
+}
+function slide(title, body, kind='content'){
+  const th=currentTheme();
+  const isTitle = kind==='title';
+  const extraClass = title === 'Timeline' ? ' timeline-slide' : (title === 'Agenda' ? ' agenda-slide' : '');
+  return `<div class="slide ${kind}${extraClass}" style="background:#${isTitle?th.bg:th.slideBg};color:#${isTitle?th.title:th.text};border-color:#${th.soft}">
+    <div style="position:absolute;left:0;top:0;bottom:0;width:8px;background:#${th.accent}"></div>
+    ${isTitle?`<div class="cover-card" style="border-color:#${th.accent}"><h3 style="color:#${th.title}">${title}</h3>${body}</div>`:`<h3 style="color:#${th.text}">${title}</h3><div class="preview-body">${body}</div>`}
+    <div class="footer">Annual Meeting v1.8</div></div>`;
+}
+function bullet(text){ return `<div class="preview-bullets">${lines(text).map(x=>`<div>• ${esc(x)}</div>`).join('')}</div>`; }
+function agendaPreview(text){ const arr=lines(text); const mid=Math.ceil(arr.length/2); return `<div class="agenda-grid"><div>${arr.slice(0,mid).map(x=>`<div class="agenda-item">${esc(x)}</div>`).join('')}</div><div>${arr.slice(mid).map(x=>`<div class="agenda-item">${esc(x)}</div>`).join('')}</div></div>`; }
+function tablePreview(ag){
+  const rows = ag.rows.filter(r=>r.total>0).slice(0,12);
+  if(!rows.length) return '<p class="note">Belum ada data Excel.</p>';
+  const dists=ag.districts.slice(0,4);
+  return `<div class="table-fit"><table class="miniTable pro"><tr><th>Bulan</th>${dists.map(d=>`<th>${esc(d)}</th>`).join('')}<th>Total</th></tr>`+
+  rows.map(r=>`<tr><td>${r.month}</td>${dists.map(d=>`<td>${money(r[d])}</td>`).join('')}<td><b>${money(r.total)}</b></td></tr>`).join('')+`</table></div>`;
+}
+function renderChart(canvasId, label, ag){
+  if(typeof Chart==='undefined') return;
+  const th=currentTheme(); const ctx=$(canvasId); if(!ctx) return;
+  if(charts[canvasId]) charts[canvasId].destroy();
+  charts[canvasId] = new Chart(ctx,{type:'bar',data:{labels:ag.rows.map(r=>r.month.substring(0,3)),datasets:[{label,data:ag.rows.map(r=>r.total),backgroundColor:'#'+th.accent,borderColor:'#'+th.accent2,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{ticks:{font:{size:9}}}}}});
+}
+function chartCanvas(id,label){return `<div class="chartbox prochart"><canvas id="${id}"></canvas></div><p class="small">Total poles per bulan</p>`;}
+function statCards(ji,co){return `<div class="stat-grid"><div class="stat"><b>${money(ji.total)}</b><span>Total Job In</span></div><div class="stat"><b>${money(co.total)}</b><span>Total Complete</span></div><div class="stat"><b>${ji.districts.length||0}</b><span>Districts</span></div></div>`;}
+function renderPreview(){
+  const d=val(); const ji=aggregate(jobInData,d.year); const co=aggregate(completeData,d.year); const probs=getProblems(); const ress=getResolutions();
+  const th=currentTheme(); $('templateName').textContent = th.name; $('templateInfo').textContent = 'Selected: '+th.name+' — preview template langsung berubah sesuai pilihan.';
+  const box=$('templatePreviewBox'); if(box){ box.style.background='#'+th.bg; box.style.color='#'+th.title; box.innerHTML=`<div class="tp-bar" style="background:#${th.accent}"></div><div class="tp-title">${esc(th.name.replace(/^\d+\.\s*/,''))}</div><div class="tp-sub">Meeting Tahunan ${esc(d.year)} • ${esc(d.district)} • ${esc(d.presenter)}</div><div class="tp-card" style="color:#${th.text};border:2px solid #${th.accent};"><b>Live Template Preview</b><br>Layout lebih penuh • Tidak ada label template di PPT<br><span style="color:#${th.accent}">Accent Color</span></div>`; }
+  const agenda='District & Flow Process\nTotal Job In - Table\nTotal Job In - Bar Chart & Kesimpulan\nTotal Job Complete - Table\nTotal Job Complete - Bar Chart & Kesimpulan\nTimeline\nProblem and Solution\nTurn Over Karyawan\nResolution\nMasukan untuk Perusahaan';
+  previewSlidesHtml = [
+    slide(`Meeting Tahunan ${d.year}`, `<p class="cover-sub">District ${esc(d.district)} • ${esc(d.presenter)}</p><div class="cover-line"></div>`,'title'),
+    slide('Agenda', agendaPreview(agenda)),
+    slide('District Structural', mediaPreview(structureImageData, d.structureText, 'Upload gambar atau isi structural district.')),
+    ...getFlowProcesses().map((f,i)=>slide(`Flow Process ${i+1}${f.name ? ' - '+esc(f.name) : ''}`, mediaPreview(f.imgData, f.text, 'Upload gambar atau isi flow process.'))),
+    slide('Job In - Table', tablePreview(ji)),
+    slide('Job In - Bar Chart & Kesimpulan', chartCanvas('chartJobIn','Job In')+`<p class="note conclusion">${esc(conclusion('Job In',ji))}</p>`),
+    slide('Job Complete - Table', tablePreview(co)),
+    slide('Job Complete - Bar Chart & Kesimpulan', chartCanvas('chartComplete','Job Complete')+`<p class="note conclusion">${esc(conclusion('Job Complete',co))}</p>`),
+    slide('Turn Over Member', `<div class="turnover-grid"><div><b>${d.resign}</b><span>Resign</span></div><div><b>${d.pindah}</b><span>Pindah</span></div><div><b>${d.masuk}</b><span>Masuk</span></div><div><b>${d.promosi}</b><span>Naik Jabatan</span></div></div>`),
+    slide('Timeline', timelinePreview()),
+    ...probs.map((p,i)=>slide(`Problems and Solutions ${i+1}`, `<div class="two"><div class="box"><b>Problem</b>${bullet(p.problem)}</div><div class="box"><b>Solution</b>${bullet(p.solution)}</div></div>`)),
+    ...ress.map((r,i)=>slide(`Resolution ${i+1}`, bullet(r))),
+    slide('Masukan untuk Perusahaan', bullet(d.support)),
+    slide('Closing', `<div class="big">That’s all.</div><p>Thank you very much :)</p><p class="small">Any Questions?</p>`,'title')
+  ];
+  $('slides').innerHTML = previewSlidesHtml.join('');
+  document.querySelectorAll('#slides .slide').forEach((el, idx)=>{ el.dataset.slideIndex = idx; el.title='Double click untuk presentasi dari slide ini'; el.ondblclick = () => startPresentation(idx); });
+  updateClearButtons();
+  setTimeout(()=>{renderChart('chartJobIn','Job In',ji);renderChart('chartComplete','Job Complete',co);},50);
+}
+
+
+
+function renderChartOnCanvas(canvas, label, ag){
+  if(typeof Chart==='undefined' || !canvas) return;
+  const th=currentTheme();
+  const key='presenter_'+label.replace(/\s+/g,'_')+'_'+presentationIndex;
+  if(charts[key]) charts[key].destroy();
+  charts[key] = new Chart(canvas,{type:'bar',data:{labels:ag.rows.map(r=>r.month.substring(0,3)),datasets:[{label,data:ag.rows.map(r=>r.total),backgroundColor:'#'+th.accent,borderColor:'#'+th.accent2,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0,font:{size:18}}},x:{ticks:{font:{size:16}}}}}});
+}
+function renderPresentationSlide(){
+  const stage=$('presenterStage'); if(!stage || !previewSlidesHtml.length) return;
+  presentationIndex=Math.max(0,Math.min(presentationIndex,previewSlidesHtml.length-1));
+  stage.innerHTML=previewSlidesHtml[presentationIndex];
+  const counter=$('presenterCounter'); if(counter) counter.textContent=(presentationIndex+1)+' / '+previewSlidesHtml.length;
+  setTimeout(()=>{
+    renderChartOnCanvas(stage.querySelector('#chartJobIn'),'Job In',aggregate(jobInData,val().year));
+    renderChartOnCanvas(stage.querySelector('#chartComplete'),'Job Complete',aggregate(completeData,val().year));
+  },80);
+}
+function startPresentation(startIndex=0){
+  renderPreview();
+  const overlay=$('presenterOverlay'); if(!overlay) return;
+  presentationIndex=Number.isFinite(+startIndex) ? +startIndex : 0;
+  overlay.classList.add('active'); renderPresentationSlide();
+  // Browser fullscreen dipakai, tapi fullscreenchange di bawah akan menutup overlay.
+  // Jadi cukup tekan Esc sekali untuk kembali ke halaman utama.
+  if(!document.fullscreenElement && overlay.requestFullscreen) overlay.requestFullscreen().catch(()=>{});
+}
+function closePresentation(skipExit=false){
+  const overlay=$('presenterOverlay'); if(overlay) overlay.classList.remove('active');
+  if(!skipExit && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+}
+function nextPresentationSlide(){ presentationIndex++; renderPresentationSlide(); }
+function prevPresentationSlide(){ presentationIndex--; renderPresentationSlide(); }
+document.addEventListener('fullscreenchange',()=>{
+  const overlay=$('presenterOverlay');
+  if(overlay && overlay.classList.contains('active') && !document.fullscreenElement){
+    closePresentation(true);
+  }
+});
+document.addEventListener('keydown',e=>{
+  const overlay=$('presenterOverlay'); if(!overlay || !overlay.classList.contains('active')) return;
+  if(e.key==='Escape'){ closePresentation(); return; }
+  if(['ArrowRight','PageDown',' '].includes(e.key)){ e.preventDefault(); nextPresentationSlide(); }
+  if(['ArrowLeft','PageUp'].includes(e.key)){ e.preventDefault(); prevPresentationSlide(); }
+});
+
+function safePlainText(text){ return String(text??'').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g,'').replace(/[\uD800-\uDFFF]/g,''); }
+function safeFileName(text){ return safePlainText(text).replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/_+/g,'_').replace(/^_|_$/g,''); }
+function addAccentBar(ppt, s, th){
+  s.addShape(ppt.ShapeType.rect,{x:0,y:0,w:.16,h:5.625,fill:{color:th.accent},line:{color:th.accent}});
+}
+function addTopRule(ppt,s,th){
+  s.addShape(ppt.ShapeType.line,{x:.5,y:.82,w:9.0,h:0,line:{color:th.accent,width:2}});
+}
+function addSlideTitle(ppt,s,title,th){
+  s.addText(safePlainText(title),{x:.52,y:.28,w:8.8,h:.38,fontFace:'Arial',fontSize:22,bold:true,color:th.text,fit:'shrink',margin:0});
+  addTopRule(ppt,s,th);
+}
+function addTitle(ppt, title, subtitle){
+  const th=currentTheme(); const s=ppt.addSlide(); s.background={color:th.bg}; addAccentBar(ppt,s,th);
+  // Professional cover: no template label printed in the PPT.
+  s.addShape(ppt.ShapeType.rect,{x:.55,y:1.05,w:9.0,h:3.05,fill:{color:th.bg},line:{color:th.accent,pt:1.25}});
+  s.addText(safePlainText(title),{x:.86,y:1.68,w:8.25,h:.62,fontFace:'Arial',fontSize:34,bold:true,color:th.title,fit:'shrink',margin:0});
+  s.addText(safePlainText(subtitle),{x:.88,y:2.52,w:8.2,h:.38,fontFace:'Arial',fontSize:17,color:th.soft,fit:'shrink',margin:0});
+  s.addShape(ppt.ShapeType.line,{x:.88,y:3.18,w:2.2,h:0,line:{color:th.accent,width:3}});
+  return s;
+}
+
+function addAgendaSlide(ppt,title,items){
+  const th=currentTheme(); const s=ppt.addSlide(); s.background={color:th.slideBg}; addAccentBar(ppt,s,th); addSlideTitle(ppt,s,title,th);
+  const arr=(items||[]).slice(0,10).map(t=>safePlainText(t));
+  const mid=Math.ceil(arr.length/2);
+  const cols=[arr.slice(0,mid),arr.slice(mid)];
+  const maxRows=Math.max(cols[0].length, cols[1].length, 1);
+  const topY=1.15, bottomY=5.05, gap=.15;
+  const cardH=(bottomY-topY-gap*(maxRows-1))/maxRows;
+  cols.forEach((col,ci)=>{
+    const x=ci===0?.68:5.08;
+    col.forEach((t,i)=>{
+      const y=topY+i*(cardH+gap);
+      s.addShape(ppt.ShapeType.roundRect,{x,y,w:4.12,h:cardH,rectRadius:.08,fill:{color:'FFFFFF'},line:{color:th.soft,pt:1.05}});
+      s.addShape(ppt.ShapeType.rect,{x,y,w:.14,h:cardH,fill:{color:th.accent},line:{color:th.accent}});
+      s.addText(t,{x:x+.28,y:y+cardH*.33,w:3.68,h:cardH*.32,fontFace:'Arial',fontSize:15.2,color:th.text,fit:'shrink',margin:0});
+    });
+  });
+  return s;
+}
+function addMediaSlide(ppt,title,imgData,text,placeholder){
+  const th=currentTheme(); const s=ppt.addSlide(); s.background={color:th.slideBg}; addAccentBar(ppt,s,th); addSlideTitle(ppt,s,title,th);
+  s.addShape(ppt.ShapeType.rect,{x:.42,y:.98,w:9.35,h:4.35,fill:{color:'FFFFFF'},line:{color:th.soft,pt:1}});
+  if(imgData){
+    s.addImage({data:imgData,x:.52,y:1.08,w:9.15,h:4.12,sizing:{type:'contain',x:.52,y:1.08,w:9.15,h:4.12}});
+  }else{
+    const body = safePlainText((text||'').trim() || placeholder);
+    s.addText(body,{x:.92,y:1.42,w:8.35,h:3.28,fontFace:'Arial',fontSize:17,color:th.text,fit:'shrink',margin:0.05,breakLine:false});
+  }
+  return s;
+}
+
+function addTurnoverSlide(ppt,d){
+  const th=currentTheme(); const s=ppt.addSlide(); s.background={color:th.slideBg}; addAccentBar(ppt,s,th); addSlideTitle(ppt,s,'Turn Over Member',th);
+  const cards=[['Resign',d.resign],['Pindah',d.pindah],['Masuk',d.masuk],['Naik Jabatan',d.promosi]];
+  cards.forEach((c,i)=>{
+    const x=.72+i*2.25;
+    s.addShape(ppt.ShapeType.roundRect,{x,y:2.02,w:1.72,h:1.28,rectRadius:.08,fill:{color:'FFFFFF'},line:{color:th.soft,pt:1.1}});
+    s.addText(String(c[1]),{x:x+.05,y:2.26,w:1.62,h:.38,fontFace:'Arial',fontSize:24,bold:true,color:th.text,align:'center',margin:0,fit:'shrink'});
+    s.addText(c[0],{x:x+.05,y:2.82,w:1.62,h:.20,fontFace:'Arial',fontSize:9.5,color:th.text,align:'center',margin:0,fit:'shrink'});
+  });
+  return s;
+}
+function addTimelineSlide(ppt){
+  const th=currentTheme(); const s=ppt.addSlide(); s.background={color:th.slideBg}; addAccentBar(ppt,s,th); addSlideTitle(ppt,s,'Timeline',th);
+  const items=getTimelines().slice(0,6);
+  if(!items.length){ s.addText('Belum ada timeline.',{x:.72,y:1.2,w:8.6,h:.3,fontFace:'Arial',fontSize:14,color:th.text,margin:0}); return s; }
+  items.forEach((t,i)=>{
+    const y=1.02+i*.66;
+    s.addShape(ppt.ShapeType.roundRect,{x:.72,y,w:8.55,h:.54,rectRadius:.06,fill:{color:th.soft},line:{color:th.soft,pt:1}});
+    s.addText(`${safePlainText(t.startMonth)} ${safePlainText(t.startYear)} - ${safePlainText(t.endMonth)} ${safePlainText(t.endYear)}`,{x:.90,y:y+.08,w:2.0,h:.14,fontFace:'Arial',fontSize:8.2,bold:true,color:th.text,margin:0,fit:'shrink'});
+    s.addText(safePlainText(t.title),{x:.90,y:y+.25,w:2.35,h:.14,fontFace:'Arial',fontSize:8.4,color:th.text,margin:0,fit:'shrink'});
+    s.addText(safePlainText(t.detail||''),{x:3.35,y:y+.16,w:5.55,h:.20,fontFace:'Arial',fontSize:8.0,color:th.text,margin:0,fit:'shrink'});
+  });
+  return s;
+}
+function addProblemSlide(ppt,title,problem,solution){
+  const th=currentTheme(); const s=ppt.addSlide(); s.background={color:th.slideBg}; addAccentBar(ppt,s,th); addSlideTitle(ppt,s,title,th);
+  [['Problem',problem,.72],['Solution',solution,5.0]].forEach(([label,text,x])=>{
+    s.addShape(ppt.ShapeType.roundRect,{x,y:1.15,w:4.05,h:3.65,rectRadius:.06,fill:{color:'FFFFFF'},line:{color:th.soft,pt:1}});
+    s.addText(label,{x:x+.22,y:1.40,w:3.55,h:.28,fontFace:'Arial',fontSize:16,bold:true,color:th.text,margin:0});
+    s.addText(lines(text).map(t=>'• '+safePlainText(t)).join('\n'),{x:x+.26,y:1.86,w:3.50,h:2.35,fontFace:'Arial',fontSize:11.5,color:th.text,fit:'shrink',margin:0,breakLine:false});
+  });
+  return s;
+}
+
+function addContent(ppt,title,items){
+  const th=currentTheme(); const s=ppt.addSlide(); s.background={color:th.slideBg}; addAccentBar(ppt,s,th); addSlideTitle(ppt,s,title,th);
+  const arr=(items||[]).slice(0,18).map(t=>safePlainText(t));
+  // Two-column layout for dense agenda/notes, so slide area is used better.
+  const mid=arr.length>8 ? Math.ceil(arr.length/2) : arr.length;
+  const cols=[arr.slice(0,mid), arr.slice(mid)];
+  const colW = arr.length>8 ? 4.25 : 8.5;
+  cols.forEach((col,idx)=>{
+    if(!col.length) return;
+    const x= idx===0 ? .72 : 5.0;
+    s.addShape(ppt.ShapeType.rect,{x,y:1.08,w:colW,h:4.08,fill:{color:'FFFFFF'},line:{color:th.soft,pt:1}});
+    s.addText(col.map(t=>'• '+t).join('\n'),{x:x+.22,y:1.32,w:colW-.42,h:3.55,fontFace:'Arial',fontSize:15,color:th.text,fit:'shrink',margin:0,breakLine:false});
+  });
+  return s;
+}
+function addSafeTableCell(s,ppt,text,x,y,w,h,opts={}){
+  const th=currentTheme();
+  s.addShape(ppt.ShapeType.rect,{x,y,w,h,fill:{color:opts.fill||'FFFFFF'},line:{color:opts.line||'CBD5E1',pt:.45}});
+  s.addText(safePlainText(text),{x:x+.035,y:y+.04,w:w-.07,h:h-.08,fontFace:'Arial',fontSize:opts.fontSize||8,bold:!!opts.bold,color:opts.color||th.text,align:opts.align||'center',valign:'mid',margin:0,fit:'shrink'});
+}
+function addTableSlide(ppt,title,ag){
+  const th=currentTheme(); const s=ppt.addSlide(); s.background={color:th.slideBg}; addAccentBar(ppt,s,th); addSlideTitle(ppt,s,title,th);
+  const districts=ag.districts.slice(0,5); const rows=[];
+  ag.rows.forEach(r=>{ if(r.total>0) rows.push([r.month,...districts.map(d=>String(r[d]||0)),String(r.total)]); });
+  rows.push(['Total',...districts.map(d=>String(ag.rows.reduce((a,r)=>a+(r[d]||0),0))),String(ag.total)]);
+  const headers=['Periode',...districts,'Total'];
+  const x0=.48, y0=.98, tableW=9.18, rowH=.315, cols=headers.length;
+  const colW=tableW/cols;
+  headers.forEach((h,i)=>addSafeTableCell(s,ppt,h,x0+i*colW,y0,colW,rowH,{fill:th.accent,line:th.accent,color:'FFFFFF',bold:true,fontSize:8.2}));
+  rows.slice(0,14).forEach((row,ri)=>{ const y=y0+(ri+1)*rowH; const isTotal=row[0]==='Total'; row.forEach((c,ci)=>addSafeTableCell(s,ppt,c,x0+ci*colW,y,colW,rowH,{fill:isTotal?th.soft:'FFFFFF',bold:isTotal||ci===0,fontSize:7.6,align:ci===0?'left':'center'})); });
+  return s;
+}
+async function chartImage(label, ag){
+  if(typeof Chart==='undefined') throw new Error('Chart.js belum ter-load');
+  const th=currentTheme(); const canvas=$('hiddenChart'); const ctx=canvas.getContext('2d'); if(charts.hidden) charts.hidden.destroy();
+  charts.hidden = new Chart(ctx,{type:'bar',data:{labels:ag.rows.map(r=>r.month),datasets:[{label,data:ag.rows.map(r=>r.total),backgroundColor:'#'+th.accent,borderColor:'#'+th.accent2,borderWidth:2}]},options:{animation:false,responsive:false,layout:{padding:18},plugins:{legend:{display:false},title:{display:false}},scales:{x:{ticks:{font:{size:16},color:'#'+th.text}},y:{beginAtZero:true,ticks:{precision:0,font:{size:15},color:'#'+th.text},grid:{color:'#E5E7EB'}}}}});
+  await new Promise(r=>setTimeout(r,180)); return canvas.toDataURL('image/png');
+}
+async function addChartSlide(ppt,title,label,ag){
+  const th=currentTheme(); const img=await chartImage(label,ag); const s=ppt.addSlide(); s.background={color:th.slideBg}; addAccentBar(ppt,s,th); addSlideTitle(ppt,s,title,th);
+  s.addImage({data:img,x:.52,y:.95,w:9.05,h:3.42});
+  s.addShape(ppt.ShapeType.rect,{x:.62,y:4.45,w:8.85,h:.72,fill:{color:'FFFFFF'},line:{color:th.soft,pt:1}});
+  s.addText(safePlainText(conclusion(label,ag)),{x:.82,y:4.58,w:8.45,h:.42,fontFace:'Arial',fontSize:11.5,color:th.text,fit:'shrink',margin:0});
+}
+
+async function writeAndValidatePpt(ppt, fileName){
+  const blob = await ppt.write({ outputType:'blob' });
+  if(!blob || blob.size < 8000) throw new Error('PPTX terlalu kecil / gagal dibuat.');
+  const sig = new Uint8Array(await blob.slice(0,4).arrayBuffer());
+  if(!(sig[0]===0x50 && sig[1]===0x4B)) throw new Error('Output bukan file PPTX valid.');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fileName; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},2000);
+}
+async function generatePPT(){
+  if(!librariesReady || !hasPptx() || typeof XLSX==='undefined' || typeof Chart==='undefined'){ alert('Library belum siap. Pastikan internet aktif, lalu coba Refresh Preview atau reload halaman.'); return; }
+  const d=val(); const ji=aggregate(jobInData,d.year); const co=aggregate(completeData,d.year); const PptxCtor=getPptxCtor(); const ppt=new PptxCtor(); ppt.layout='LAYOUT_WIDE'; ppt.author=d.presenter; ppt.company='PT Kirana Prima Abadi'; ppt.subject=`Meeting Tahunan ${d.year}`; ppt.title=`Meeting Tahunan ${d.year} District ${d.district}`;
+  addTitle(ppt,`Meeting Tahunan ${d.year}`,`District ${d.district} • ${d.presenter}`);
+  addAgendaSlide(ppt,'Agenda',lines('District & Flow Process\nTotal Job In - Table\nTotal Job In - Bar Chart & Kesimpulan\nTotal Job Complete - Table\nTotal Job Complete - Bar Chart & Kesimpulan\nTimeline\nProblem and Solution\nTurn Over Karyawan\nResolution\nMasukan untuk Perusahaan'));
+  addMediaSlide(ppt,'District Structural',structureImageData,d.structureText,'Upload gambar atau isi structural district.');
+  getFlowProcesses().forEach((f,i)=>addMediaSlide(ppt,`Flow Process ${i+1}${f.name ? ' - '+safePlainText(f.name) : ''}`,f.imgData,f.text,'Upload gambar atau isi flow process.')); 
+  addTableSlide(ppt,'Job In - Table',ji); await addChartSlide(ppt,'Job In - Bar Chart & Kesimpulan','Job In',ji);
+  addTableSlide(ppt,'Job Complete - Table',co); await addChartSlide(ppt,'Job Complete - Bar Chart & Kesimpulan','Job Complete',co);
+  addTurnoverSlide(ppt,d);
+  addTimelineSlide(ppt);
+  getProblems().forEach((p,i)=>addProblemSlide(ppt,`Problems and Solutions ${i+1}`,p.problem,p.solution));
+  getResolutions().forEach((r,i)=>addContent(ppt,`Resolution ${i+1}`,lines(r)));
+  addContent(ppt,'Masukan untuk Perusahaan',lines(d.support)); addTitle(ppt,'That’s all. Thank you very much! :)','Any Questions?');
+  try{ await writeAndValidatePpt(ppt, `Meeting_Tahunan_${d.year}_${d.district.replace(/\s+/g,'_')}_${currentTheme().id}_Online_v1_8.pptx`); }catch(err){ alert('Gagal generate PPTX: '+err.message); }
+}
+addTimeline('Job In / Complete Review','Januari','2025','Mei','2026','Review data pekerjaan dari awal 2025 sampai periode berjalan 2026.');
+addTimeline('Struktur organisasi dan flow process','Januari','2025','Maret','2025','Penyesuaian flow kerja dan pembagian role district.');
+addTimeline('Problem and Solution Review','Juni','2025','Desember','2025','Evaluasi problem utama dan solusi yang sudah dijalankan.');
+addTimeline('Resolution dan management support','Januari','2026','Mei','2026','Rencana improvement dan support yang dibutuhkan untuk sisa tahun 2026.');
+addProblem('Job volume tidak stabil dan beberapa role perlu lebih fleksibel.','Cross training CS, QC, SPV, dan Job Prep agar support antar district lebih lancar.');
+addProblem('Data reporting masih perlu banyak manual checking.','Gunakan tools automation untuk tarik data, chart, dan kesimpulan otomatis.');
+addResolution('Harus bisa berbagai district agar ketika membantu tidak menyusahkan district yang dibantu.\nTerus adaptasi karena pekerjaan semakin dynamic.');
+addResolution('Dibiasakan shifting CS → QC → SPV dan lebih siap handle pertanyaan dari team maupun management.');
+initTemplateSelect();
+setBusyState(true);
+renderPreview();
+initLibraries();
+</script>
+</body>
+</html>
