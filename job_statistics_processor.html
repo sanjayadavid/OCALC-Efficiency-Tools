@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Job In & Job Complete Statistics Processor</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#f6f8fb;--card:#fff;--ink:#1f2937;--muted:#64748b;--primary:#2563eb;--ok:#16a34a;--line:#e5e7eb;--warn:#b45309}
+  *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:26px 28px;background:#0f172a;color:white} header h1{margin:0 0 8px;font-size:24px} header p{margin:0;color:#cbd5e1}
+  main{max-width:1200px;margin:22px auto;padding:0 18px 34px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 4px 18px rgba(15,23,42,.06)}
+  h2{margin:0 0 10px;font-size:19px}.hint{font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:14px}.drop{border:2px dashed #cbd5e1;border-radius:14px;padding:18px;background:#f8fafc;text-align:center;margin:12px 0}.drop input{max-width:100%}
+  button{border:0;border-radius:10px;padding:11px 14px;font-weight:700;cursor:pointer;background:var(--primary);color:white;margin:6px 6px 6px 0}button.secondary{background:#475569}button.green{background:var(--ok)}button.orange{background:#ea580c}button:disabled{opacity:.5;cursor:not-allowed}
+  .status{font-size:13px;color:var(--muted);margin-top:8px;white-space:pre-line}.error{color:#b91c1c}.success{color:#15803d}.warn{color:var(--warn)}
+  table{border-collapse:collapse;width:100%;font-size:12px;margin-top:10px;background:white}th,td{border:1px solid #dbe3ef;padding:7px;text-align:left}th{background:#d9eaf7;font-weight:700}.preview{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:10px}
+  .chartWrap{margin-top:16px;height:440px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}.small{font-size:12px;color:var(--muted)}.insight{margin-top:12px;padding:14px;border:1px solid #fed7aa;background:#fff7ed;border-radius:12px;font-size:13px;line-height:1.55;white-space:pre-line}.insight b{color:#9a3412}
+</style>
+</head>
+<body>
+<header>
+  <h1>Job In & Job Complete Statistics Processor</h1>
+  <p>Upload data mentah, proses otomatis, download Excel, dan buat bar chart untuk laporan tahunan.</p>
+</header>
+<main>
+  <div class="card" style="margin-bottom:18px">
+    <b>Catatan:</b> Aplikasi ini memakai library Excel/Chart dari CDN. Saat dibuka dengan double click, pastikan komputer terhubung internet agar fitur baca/tulis Excel aktif.
+  </div>
+  <div class="grid">
+    <section class="card">
+      <h2>1. Proses Job In</h2>
+      <div class="hint">Input: file mentah seperti <b>Job In Januari 2025 - April 2026.xlsx</b>. Output dibuat mengikuti contoh <b>Job In Categorize.xlsx</b> dengan 2 sheet: Master Data Job In dan Subtotal Job In.</div>
+      <div class="drop"><input type="file" id="jobInFile" accept=".xlsx,.xls" /></div>
+      <button onclick="processJobIn()">Proses Job In</button>
+      <button class="green" id="downloadJobIn" onclick="downloadJobIn()" disabled>Download Excel Job In</button>
+      <button class="secondary" id="chartJobIn" onclick="drawChart('in')" disabled>Buat Bar Chart Poles Job In</button>
+      <button class="orange" id="insightJobIn" onclick="makeInsight('in')" disabled>Tarik Kesimpulan Job In</button>
+      <button class="secondary" onclick="clearSection('in')">Clear Job In</button>
+      <div class="small">Chart: total poles per bulan, warna berbeda per district. Klik legend untuk hide/show district.</div>
+      <div id="jobInStatus" class="status"></div>
+      <div id="jobInPreview" class="preview"></div>
+      <div class="chartWrap"><canvas id="jobInCanvas"></canvas></div>
+      <div id="jobInInsight" class="insight" style="display:none"></div>
+    </section>
+    <section class="card">
+      <h2>2. Proses Job Complete</h2>
+      <div class="hint">Input: file mentah seperti <b>Job Complete Januari 2025 - April 2026.xlsx</b>. Output dibuat dengan format ringkasan bulanan yang sama seperti Job In, tetapi memakai Completed Job dan Completed Poles.</div>
+      <div class="drop"><input type="file" id="jobCompleteFile" accept=".xlsx,.xls" /></div>
+      <button onclick="processJobComplete()">Proses Job Complete</button>
+      <button class="green" id="downloadJobComplete" onclick="downloadJobComplete()" disabled>Download Excel Job Complete</button>
+      <button class="secondary" id="chartJobComplete" onclick="drawChart('complete')" disabled>Buat Bar Chart Poles Job Complete</button>
+      <button class="orange" id="insightJobComplete" onclick="makeInsight('complete')" disabled>Tarik Kesimpulan Job Complete</button>
+      <button class="secondary" onclick="clearSection('complete')">Clear Job Complete</button>
+      <div class="small">Chart: total poles per bulan, warna berbeda per district. Klik legend untuk hide/show district.</div>
+      <div id="jobCompleteStatus" class="status"></div>
+      <div id="jobCompletePreview" class="preview"></div>
+      <div class="chartWrap"><canvas id="jobCompleteCanvas"></canvas></div>
+      <div id="jobCompleteInsight" class="insight" style="display:none"></div>
+    </section>
+  </div>
+</main>
+<script>
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DISTRICT_ORDER = ['CA NORTH','CA SOUTH','COMCAST','COMCAST NESC','NESC'];
+const DISPLAY = {'CA NORTH':'CA North','CA SOUTH':'CA South','COMCAST':'Comcast','COMCAST NESC':'Comcast NESC','NESC':'NESC'};
+const HEADS = {'CA NORTH':'Kadmiel','CA SOUTH':'Annisa','COMCAST NESC':'Nafasa'};
+let jobInWB = null, jobCompleteWB = null, jobInData = null, jobCompleteData = null, charts = {};
+
+function setStatus(id, msg, cls=''){ const el=document.getElementById(id); el.className='status '+cls; el.textContent=msg; }
+function toNumber(v){ if(v===undefined||v===null||v==='') return 0; const n=Number(String(v).replace(/,/g,'').trim()); return isNaN(n)?0:n; }
+function norm(s){ return String(s||'').trim().toUpperCase().replace(/\s+/g,' '); }
+function parseDate(v){
+  if(v instanceof Date) return v;
+  if(typeof v === 'number') return new Date(Math.round((v - 25569) * 86400 * 1000));
+  const s=String(v||'').trim(); if(!s) return null;
+  const m=s.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/); if(!m) return null;
+  let y=Number(m[3]); if(y<100) y+=2000;
+  return new Date(y, Number(m[1])-1, Number(m[2]));
+}
+function extractDateFromGroup(s){
+  const m=String(s||'').match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if(!m) return null; let y=Number(m[3]); if(y<100)y+=2000; return new Date(y,Number(m[1])-1,Number(m[2]));
+}
+function monthKey(dt){ return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'); }
+function monthLabel(key){ const [y,m]=key.split('-').map(Number); return MONTHS[m-1]+' '+y; }
+function readWorkbook(file){
+  return new Promise((resolve,reject)=>{ const r=new FileReader(); r.onload=e=>{try{resolve(XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true}));}catch(err){reject(err)}}; r.onerror=reject; r.readAsArrayBuffer(file); });
+}
+function sheetRows(wb){ return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false}); }
+function findHeaderIndex(headers, names){
+  const h=headers.map(x=>norm(x));
+  for(const name of names){ const i=h.indexOf(norm(name)); if(i>=0) return i; }
+  return -1;
+}
+function buildOutputSheets(masterName, subtotalName, agg, period, completed=false){
+  const master = [[completed?'Month':'Month','Year','District', completed?'Total Completed Job':'Total Job', completed?'Total Completed Poles':'Total Poles','Subtotal']];
+  const keys = Object.keys(agg).sort();
+  for(const key of keys){
+    const [y,m]=key.split('-').map(Number); const subtotal = DISTRICT_ORDER.reduce((s,d)=>s+(agg[key][d]?.poles||0),0); let first=true;
+    for(const d of DISTRICT_ORDER){ const item=agg[key][d]||{jobs:0,poles:0}; master.push([first?MONTHS[m-1]:'', first?y:'', DISPLAY[d], item.jobs, item.poles, first?subtotal:'']); first=false; }
+  }
+  const totals = {}; DISTRICT_ORDER.forEach(d=>totals[d]={jobs:0,poles:0});
+  keys.forEach(k=>DISTRICT_ORDER.forEach(d=>{ totals[d].jobs += agg[k][d]?.jobs||0; totals[d].poles += agg[k][d]?.poles||0; }));
+  const subtotal = [['District','Period', completed?'Total Completed Job':'Total Job', completed?'Total Completed Poles':'Total Poles','Total Handle','Head']];
+  DISTRICT_ORDER.forEach(d=>{
+    let handle='', head='';
+    if(d==='CA NORTH'){ handle = totals['CA NORTH'].poles + totals['COMCAST'].poles; head=HEADS[d]; }
+    if(d==='CA SOUTH'){ handle = totals['CA SOUTH'].poles; head=HEADS[d]; }
+    if(d==='COMCAST NESC'){ handle = totals['COMCAST NESC'].poles + totals['NESC'].poles; head=HEADS[d]; }
+    subtotal.push([DISPLAY[d], period, totals[d].jobs, totals[d].poles, handle, head]);
+  });
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.aoa_to_sheet(master); const ws2 = XLSX.utils.aoa_to_sheet(subtotal);
+  styleSheet(ws1, master.length, 6); styleSheet(ws2, subtotal.length, 6);
+  XLSX.utils.book_append_sheet(wb, ws1, masterName); XLSX.utils.book_append_sheet(wb, ws2, subtotalName);
+  return {wb, master, subtotal, totals};
+}
+function styleSheet(ws, rows, cols){
+  ws['!cols'] = Array.from({length:cols},(_,i)=>({wch:[14,10,17,18,18,16][i]||14}));
+  ws['!autofilter'] = {ref:XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:rows-1,c:cols-1}})};
+}
+function preview(id, data, rows=12){
+  let html='<table><thead><tr>'+data[0].map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>';
+  data.slice(1,rows+1).forEach(r=>{html+='<tr>'+data[0].map((_,i)=>'<td>'+((r[i]??'')+'</td>')).join('')+'</tr>';});
+  html+='</tbody></table><div class="small">Preview '+Math.min(rows,data.length-1)+' dari '+(data.length-1)+' baris.</div>';
+  document.getElementById(id).innerHTML=html;
+}
+function periodFromKeys(keys){ if(!keys.length) return ''; return monthLabel(keys[0])+' - '+monthLabel(keys[keys.length-1]); }
+
+async function processJobIn(){
+  try{
+    const file=document.getElementById('jobInFile').files[0]; if(!file) return setStatus('jobInStatus','Pilih file Job In terlebih dahulu.','error');
+    const wb=await readWorkbook(file); const rows=sheetRows(wb); if(rows.length<2) throw new Error('File kosong / tidak ada data.');
+    const h=rows[0]; const dateI=findHeaderIndex(h,['Req Date','Request Date','Date']); const projectI=findHeaderIndex(h,['Project']); const polesI=findHeaderIndex(h,['Req Poles','Poles']);
+    if(dateI<0||projectI<0||polesI<0) throw new Error('Kolom wajib tidak ditemukan. Dibutuhkan: Req Date, Project, Req Poles.');
+    const agg={}; let used=0, skipped=0;
+    rows.slice(1).forEach(r=>{ const dt=parseDate(r[dateI]); const d=norm(r[projectI]); if(!dt||!DISTRICT_ORDER.includes(d)){skipped++;return;} const key=monthKey(dt); agg[key]=agg[key]||{}; agg[key][d]=agg[key][d]||{jobs:0,poles:0}; agg[key][d].jobs++; agg[key][d].poles += toNumber(r[polesI]); used++; });
+    const keys=Object.keys(agg).sort(); const period=periodFromKeys(keys);
+    const out=buildOutputSheets('Master Data Job In','Subtotal Job In',agg,period,false); jobInWB=out.wb; jobInData={agg, master:out.master, totals:out.totals};
+    document.getElementById('downloadJobIn').disabled=false; document.getElementById('chartJobIn').disabled=false; document.getElementById('insightJobIn').disabled=false; preview('jobInPreview',out.master);
+    setStatus('jobInStatus',`Selesai. Data terpakai: ${used} baris. Dilewati: ${skipped} baris. Period: ${period}`,'success');
+  }catch(e){ setStatus('jobInStatus','Error: '+e.message,'error'); }
+}
+async function processJobComplete(){
+  try{
+    const file=document.getElementById('jobCompleteFile').files[0]; if(!file) return setStatus('jobCompleteStatus','Pilih file Job Complete terlebih dahulu.','error');
+    const wb=await readWorkbook(file); const rows=sheetRows(wb); if(rows.length<2) throw new Error('File kosong / tidak ada data.');
+    const h=rows[0]; const groupI=findHeaderIndex(h,['Group']); const projectI=findHeaderIndex(h,['Project']); const jobI=findHeaderIndex(h,['sum(Completed Job)','Completed Job']); const polesI=findHeaderIndex(h,['sum(Completed Poles)','Completed Poles']);
+    if(groupI<0||projectI<0||jobI<0||polesI<0) throw new Error('Kolom wajib tidak ditemukan. Dibutuhkan: Group, Project, sum(Completed Job), sum(Completed Poles).');
+    const agg={}; let currentDate=null, used=0, skipped=0;
+    rows.slice(1).forEach(r=>{
+      const group=String(r[groupI]||''); const maybeDate=extractDateFromGroup(group); if(maybeDate && !/^Total/i.test(group.trim())){ currentDate=maybeDate; return; }
+      if(/^Total/i.test(group.trim())) return;
+      const d=norm(r[projectI]); if(!currentDate||!DISTRICT_ORDER.includes(d)){ skipped++; return; }
+      const key=monthKey(currentDate); agg[key]=agg[key]||{}; agg[key][d]=agg[key][d]||{jobs:0,poles:0}; agg[key][d].jobs += toNumber(r[jobI]); agg[key][d].poles += toNumber(r[polesI]); used++;
+    });
+    const keys=Object.keys(agg).sort(); const period=periodFromKeys(keys);
+    const out=buildOutputSheets('Master Data Job Complete','Subtotal Job Complete',agg,period,true); jobCompleteWB=out.wb; jobCompleteData={agg, master:out.master, totals:out.totals};
+    document.getElementById('downloadJobComplete').disabled=false; document.getElementById('chartJobComplete').disabled=false; document.getElementById('insightJobComplete').disabled=false; preview('jobCompletePreview',out.master);
+    setStatus('jobCompleteStatus',`Selesai. Data project terpakai: ${used} baris. Dilewati: ${skipped} baris. Period: ${period}`,'success');
+  }catch(e){ setStatus('jobCompleteStatus','Error: '+e.message,'error'); }
+}
+function downloadJobIn(){ if(jobInWB) XLSX.writeFile(jobInWB,'Job In Categorize Output.xlsx'); }
+function downloadJobComplete(){ if(jobCompleteWB) XLSX.writeFile(jobCompleteWB,'Job Complete Categorize Output.xlsx'); }
+
+function clearSection(type){
+  if(type === 'in'){
+    document.getElementById('jobInFile').value = '';
+    document.getElementById('downloadJobIn').disabled = true;
+    document.getElementById('chartJobIn').disabled = true;
+    document.getElementById('insightJobIn').disabled = true;
+    document.getElementById('jobInStatus').className = 'status';
+    document.getElementById('jobInStatus').textContent = '';
+    document.getElementById('jobInPreview').innerHTML = '';
+    document.getElementById('jobInInsight').style.display = 'none';
+    document.getElementById('jobInInsight').innerHTML = '';
+    if(charts.in){ charts.in.destroy(); delete charts.in; }
+    const canvas = document.getElementById('jobInCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    jobInWB = null;
+    jobInData = null;
+    return;
+  }
+  if(type === 'complete'){
+    document.getElementById('jobCompleteFile').value = '';
+    document.getElementById('downloadJobComplete').disabled = true;
+    document.getElementById('chartJobComplete').disabled = true;
+    document.getElementById('insightJobComplete').disabled = true;
+    document.getElementById('jobCompleteStatus').className = 'status';
+    document.getElementById('jobCompleteStatus').textContent = '';
+    document.getElementById('jobCompletePreview').innerHTML = '';
+    document.getElementById('jobCompleteInsight').style.display = 'none';
+    document.getElementById('jobCompleteInsight').innerHTML = '';
+    if(charts.complete){ charts.complete.destroy(); delete charts.complete; }
+    const canvas = document.getElementById('jobCompleteCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    jobCompleteWB = null;
+    jobCompleteData = null;
+  }
+}
+
+
+function fmtPct(v){
+  if(!isFinite(v)) return '0%';
+  const sign = v>0?'+':'';
+  return sign + v.toFixed(1).replace('.',',') + '%';
+}
+function fmtNum(v){ return Number(v||0).toLocaleString('id-ID'); }
+function calcMonthlyTotals(data){
+  const keys = Object.keys(data.agg).sort();
+  return keys.map(k=>({key:k, label:monthLabel(k), total:DISTRICT_ORDER.reduce((s,d)=>s+(data.agg[k]?.[d]?.poles||0),0)}));
+}
+function calcDistrictPeak(data){
+  let peak = {key:'', label:'', district:'', value:-1};
+  Object.keys(data.agg).sort().forEach(k=>{
+    DISTRICT_ORDER.forEach(d=>{
+      const v = data.agg[k]?.[d]?.poles || 0;
+      if(v > peak.value) peak = {key:k, label:monthLabel(k), district:DISPLAY[d], value:v};
+    });
+  });
+  return peak;
+}
+function calcLongestRun(months, direction){
+  let best = null, start = null;
+  for(let i=1;i<months.length;i++){
+    const diff = months[i].total - months[i-1].total;
+    const ok = direction === 'up' ? diff > 0 : diff < 0;
+    if(ok){ if(start === null) start = i-1; }
+    else{
+      if(start !== null){
+        const end = i-1; const change = months[end].total - months[start].total;
+        const pct = months[start].total ? (change / months[start].total * 100) : 0;
+        const candidate = {start,end,steps:end-start,abs:Math.abs(change),pct};
+        if(!best || candidate.steps>best.steps || (candidate.steps===best.steps && candidate.abs>best.abs)) best = candidate;
+        start = null;
+      }
+    }
+  }
+  if(start !== null){
+    const end = months.length-1; const change = months[end].total - months[start].total;
+    const pct = months[start].total ? (change / months[start].total * 100) : 0;
+    const candidate = {start,end,steps:end-start,abs:Math.abs(change),pct};
+    if(!best || candidate.steps>best.steps || (candidate.steps===best.steps && candidate.abs>best.abs)) best = candidate;
+  }
+  return best;
+}
+function calcBiggestMove(months, direction){
+  let best = null;
+  for(let i=1;i<months.length;i++){
+    const change = months[i].total - months[i-1].total;
+    const ok = direction === 'up' ? change > 0 : change < 0;
+    if(!ok) continue;
+    const pct = months[i-1].total ? (change / months[i-1].total * 100) : 0;
+    const candidate = {from:i-1,to:i,change,pct,abs:Math.abs(change)};
+    if(!best || candidate.abs > best.abs) best = candidate;
+  }
+  return best;
+}
+function makeInsight(type){
+  const data = type==='in'?jobInData:jobCompleteData; if(!data) return;
+  const months = calcMonthlyTotals(data);
+  const targetId = type==='in'?'jobInInsight':'jobCompleteInsight';
+  const label = type==='in'?'Job In':'Job Complete';
+  if(months.length === 0){
+    document.getElementById(targetId).style.display='block';
+    document.getElementById(targetId).innerHTML='<b>Kesimpulan '+label+':</b> Belum ada data yang bisa dianalisis.';
+    return;
+  }
+  const peakDistrict = calcDistrictPeak(data);
+  const peakMonth = months.reduce((a,b)=>b.total>a.total?b:a, months[0]);
+  const lowMonth = months.reduce((a,b)=>b.total<a.total?b:a, months[0]);
+  const upRun = calcLongestRun(months,'up');
+  const downRun = calcLongestRun(months,'down');
+  const biggestUp = calcBiggestMove(months,'up');
+  const biggestDown = calcBiggestMove(months,'down');
+  const totalAll = months.reduce((s,m)=>s+m.total,0);
+  const avg = months.length ? totalAll/months.length : 0;
+  let lines = [];
+  lines.push('<b>Kesimpulan '+label+' berdasarkan jumlah poles:</b>');
+  lines.push('• Total poles tertinggi per district terjadi di '+peakDistrict.district+' pada '+peakDistrict.label+' dengan '+fmtNum(peakDistrict.value)+' poles.');
+  lines.push('• Total bulanan tertinggi terjadi pada '+peakMonth.label+' dengan '+fmtNum(peakMonth.total)+' poles. Bulan terendah adalah '+lowMonth.label+' dengan '+fmtNum(lowMonth.total)+' poles.');
+  lines.push('• Rata-rata poles per bulan: '+fmtNum(Math.round(avg))+' poles dari total '+fmtNum(totalAll)+' poles.');
+  if(upRun){
+    lines.push('• Tren kenaikan beruntun terlihat dari '+months[upRun.start].label+' ke '+months[upRun.end].label+', naik dari '+fmtNum(months[upRun.start].total)+' ke '+fmtNum(months[upRun.end].total)+' poles ('+fmtPct(upRun.pct)+').');
+  }else{
+    lines.push('• Tidak ada tren kenaikan beruntun antar bulan pada periode ini.');
+  }
+  if(downRun){
+    lines.push('• Setelah itu / pada periode turun, penurunan beruntun terbesar terlihat dari '+months[downRun.start].label+' sampai '+months[downRun.end].label+', turun dari '+fmtNum(months[downRun.start].total)+' ke '+fmtNum(months[downRun.end].total)+' poles ('+fmtPct(downRun.pct)+').');
+  }else{
+    lines.push('• Tidak ada tren penurunan beruntun antar bulan pada periode ini.');
+  }
+  if(biggestUp){
+    lines.push('• Kenaikan month-to-month terbesar: '+months[biggestUp.from].label+' → '+months[biggestUp.to].label+', naik '+fmtNum(biggestUp.change)+' poles ('+fmtPct(biggestUp.pct)+').');
+  }
+  if(biggestDown){
+    lines.push('• Penurunan month-to-month terbesar: '+months[biggestDown.from].label+' → '+months[biggestDown.to].label+', turun '+fmtNum(Math.abs(biggestDown.change))+' poles ('+fmtPct(biggestDown.pct)+').');
+  }
+  const el=document.getElementById(targetId); el.style.display='block'; el.innerHTML=lines.join('\n');
+  if(!charts[type]) drawChart(type);
+}
+
+function drawChart(type){
+  const data = type==='in'?jobInData:jobCompleteData; if(!data) return;
+  const canvasId = type==='in'?'jobInCanvas':'jobCompleteCanvas'; if(charts[type]) charts[type].destroy();
+  const keys = Object.keys(data.agg).sort();
+  const labels = keys.map(k=>monthLabel(k));
+  const palette = {
+    'CA NORTH':'#2563eb',
+    'CA SOUTH':'#16a34a',
+    'COMCAST':'#f97316',
+    'COMCAST NESC':'#9333ea',
+    'NESC':'#dc2626'
+  };
+  const datasets = DISTRICT_ORDER.map(d=>({
+    label: DISPLAY[d],
+    data: keys.map(k => data.agg[k]?.[d]?.poles || 0),
+    backgroundColor: palette[d],
+    borderColor: palette[d],
+    borderWidth: 1
+  }));
+  const title = type==='in'
+    ? 'Job In - Total Poles per Bulan per District'
+    : 'Job Complete - Total Completed Poles per Bulan per District';
+  charts[type]=new Chart(document.getElementById(canvasId),{
+    type:'bar',
+    data:{labels,datasets},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        title:{display:true,text:title,font:{size:16}},
+        subtitle:{display:true,text:'Sumbu X = bulan, warna = district, tinggi bar = jumlah poles'},
+        legend:{position:'bottom'},
+        tooltip:{callbacks:{label:(ctx)=>ctx.dataset.label+': '+(ctx.parsed.y||0).toLocaleString('id-ID')+' poles', footer:(items)=>'Total poles bulan ini: '+items.reduce((s,i)=>s+(i.parsed.y||0),0).toLocaleString('id-ID')}}
+      },
+      scales:{
+        x:{stacked:false,ticks:{maxRotation:45,minRotation:0}},
+        y:{beginAtZero:true,title:{display:true,text:type==='in'?'Total Poles':'Total Completed Poles'}}
+      }
+    }
+  });
+}
+</script>
+</body>
+</html>
