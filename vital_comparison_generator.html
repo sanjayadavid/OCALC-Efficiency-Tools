@@ -82,13 +82,21 @@ async function parseDatasheet(file){
   const ws=wb.Sheets[wb.SheetNames[0]];
   const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
   let headerRow=-1, map={};
-  const wanted=['POLE SEQ','POLE NUMBER','ADDRESS','POLE HEIGHT','POLE CLASS','ORIGINAL CIRCUMFERENCE'];
+  const wanted=['POLE NUMBER','ADDRESS','POLE HEIGHT','POLE CLASS','ORIGINAL CIRCUMFERENCE'];
   for(let r=0;r<Math.min(rows.length,30);r++){
     const vals=rows[r].map(x=>clean(x).toUpperCase());
-    let hits=wanted.filter(w=>vals.includes(w)).length;
-    if(hits>=3){headerRow=r; wanted.forEach(w=>map[w]=vals.indexOf(w)); break;}
+
+    const seqIdx = vals.indexOf('POLE SEQ') >= 0 ? vals.indexOf('POLE SEQ') : vals.indexOf('POLE SEQUENCE');
+    let hits = wanted.filter(w=>vals.includes(w)).length + (seqIdx >= 0 ? 1 : 0);
+
+    if(hits>=3){
+      map['POLE SEQ'] = seqIdx;
+      wanted.forEach(w=>map[w]=vals.indexOf(w));
+      headerRow=r;
+      break;
+    }
   }
-  if(headerRow<0) throw new Error('Header VITAL_DATASHEET tidak ditemukan. Pastikan ada POLE SEQ, POLE NUMBER, ADDRESS, POLE HEIGHT, POLE CLASS, ORIGINAL CIRCUMFERENCE.');
+  if(headerRow<0) throw new Error('Header VITAL_DATASHEET tidak ditemukan. Pastikan ada POLE SEQ atau POLE SEQUENCE, POLE NUMBER, ADDRESS, POLE HEIGHT, POLE CLASS, ORIGINAL CIRCUMFERENCE.');
   const out=[];
   for(let r=headerRow+1;r<rows.length;r++){
     let row=rows[r], seq=clean(row[map['POLE SEQ']]);
