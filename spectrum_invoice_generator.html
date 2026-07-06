@@ -218,7 +218,9 @@ async function makeWorkbook(r){
   setFormula(ws,'H3','H1+14'); ws.getCell('H3').numFmt = 'm/d/yyyy';
   setCellValue(ws,'A5',`Invoice: ${r.invoiceNumber}`);
   setCellValue(ws,'C18','CHC-SPECTRUM');
-  setCellValue(ws,'C19','Barrozo, Veronica');
+  setCellValue(ws,'C8','OCALC');
+  setCellValue(ws,'C19','Franco, Stephanie');
+  setCellValue(ws,'B23','OCALC');
   setCellValue(ws,'C20','1600 Pearl St. Ste 300');
   setCellValue(ws,'C21','Boulder, CO 80302');
   setCellValue(ws,'F20',r.poNumber);
@@ -227,18 +229,18 @@ async function makeWorkbook(r){
   ['H8','H9','H10','H11','H12','H13','H14'].forEach((addr,idx)=> setFormula(ws,addr,`B${8+idx}*G${8+idx}`));
   setFormula(ws,'H15','SUM(H8:H14)');
   // Poles
-  setCellValue(ws,'B25',r.pid); setCE(ws,'C25',r.cePoles); setCellValue(ws,'D25',r.jobNumberPid); setCellValue(ws,'E25',r.note||''); setDateCell(ws,'F25',r.completeDateMre); setCellValue(ws,'G25',r.totalPoles); setFormula(ws,'G26','SUM(G25:G25)');
+  setCellValue(ws,'B25',r.pid); setCE(ws,'C25',r.cePoles); setCellValue(ws,'D25',r.jobNumberPid); setCellValue(ws,'E25',r.note||null); setDateCell(ws,'F25',r.completeDateMre); setCellValue(ws,'G25',r.totalPoles); setFormula(ws,'G26','SUM(G25:G25)');
   // MRE Existing
-  setCellValue(ws,'B30',r.pid); setCE(ws,'C30',r.ceMreE); setCellValue(ws,'D30',r.jobNumberPid); setCellValue(ws,'E30',r.note||''); setDateCell(ws,'F30',r.completeDateMre); setCellValue(ws,'G30',r.totalExisting); setFormula(ws,'G31','SUM(G30:G30)');
+  setCellValue(ws,'B30',r.pid); setCE(ws,'C30',r.ceMreE); setCellValue(ws,'D30',r.jobNumberPid); setCellValue(ws,'E30',r.note||null); setDateCell(ws,'F30',r.completeDateMre); setCellValue(ws,'G30',r.totalExisting); setFormula(ws,'G31','SUM(G30:G30)');
   // MRE Proposed
-  setCellValue(ws,'B35',r.pid); setCE(ws,'C35',r.ceMrePropose); setCellValue(ws,'D35',r.jobNumberPid); setCellValue(ws,'E35',r.note||''); setDateCell(ws,'F35',r.completeDateMre); setCellValue(ws,'G35',r.invoiceNewStrand); setCellValue(ws,'H35',r.invoiceOverlash); setFormula(ws,'G36','SUM(G35:G35)'); setFormula(ws,'H36','SUM(H35:H35)');
+  setCellValue(ws,'B35',r.pid); setCE(ws,'C35',r.ceMrePropose); setCellValue(ws,'D35',r.jobNumberPid); setCellValue(ws,'E35',r.note||null); setDateCell(ws,'F35',r.completeDateMre); setCellValue(ws,'G35',r.invoiceNewStrand); setCellValue(ws,'H35',r.invoiceOverlash); setFormula(ws,'G36','SUM(G35:G35)'); setFormula(ws,'H36','SUM(H35:H35)');
   if(r.riserCombinedWarning){ markRedFill(ws,'G35'); markRedFill(ws,'H35'); }
   // Fielding
-  setCellValue(ws,'B40',r.pid); setCE(ws,'C40',r.ceFielding); setCellValue(ws,'D40',r.jobNumberPid); setCellValue(ws,'E40',r.note||''); setDateCell(ws,'F40',r.completeDateMre); setCellValue(ws,'G40',r.frontyard); setCellValue(ws,'H40',r.backyard); setCellValue(ws,'I40',r.noAccess); setFormula(ws,'G41','SUM(G40:G40)'); setFormula(ws,'H41','SUM(H40:H40)'); setFormula(ws,'I41','SUM(I40:I40)');
+  setCellValue(ws,'B40',r.pid); setCE(ws,'C40',r.ceFielding); setCellValue(ws,'D40',r.jobNumberPid); setCellValue(ws,'E40',r.note||null); setDateCell(ws,'F40',r.completeDateMre); setCellValue(ws,'G40',r.frontyard); setCellValue(ws,'H40',r.backyard); setCellValue(ws,'I40',r.noAccess); setFormula(ws,'G41','SUM(G40:G40)'); setFormula(ws,'H41','SUM(H40:H40)'); setFormula(ws,'I41','SUM(I40:I40)');
   return wb;
 }
 async function generateOne(i){
-  try{ const r=rows[i]; const wb=await makeWorkbook(r); const buf=await wb.xlsx.writeBuffer(); downloadBlob(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), `${r.invoiceNumber} SPECTRUM INVOICE - Barrozo, Veronica.xlsx`); }
+  try{ const r=rows[i]; const wb=await makeWorkbook(r); const buf=await wb.xlsx.writeBuffer(); downloadBlob(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), `${r.invoiceNumber} SPECTRUM INVOICE - Franco, Stephanie.xlsx`); }
   catch(err){ console.error(err); setNotice('❌ Error generate invoice: '+err.message,true); }
 }
 q('generateAllBtn').addEventListener('click', async()=>{
@@ -250,7 +252,7 @@ q('generateAllBtn').addEventListener('click', async()=>{
       setNotice(`Membuat invoice ${i+1}/${rows.length}: ${rows[i].invoiceNumber}`);
       const wb = await makeWorkbook(rows[i]);
       const buf = await wb.xlsx.writeBuffer();
-      zip.file(`${rows[i].invoiceNumber} SPECTRUM INVOICE - Barrozo, Veronica.xlsx`, buf);
+      zip.file(`${rows[i].invoiceNumber} SPECTRUM INVOICE - Franco, Stephanie.xlsx`, buf);
     }
     const blob = await zip.generateAsync({type:'blob'});
     downloadBlob(blob, `Spectrum Invoices ${rows[0].invoiceNumber} - ${rows[rows.length-1].invoiceNumber}.zip`);
